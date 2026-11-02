@@ -111,6 +111,17 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(await page.getAttribute('#sw-module', 'aria-checked') === 'true', 'Modulschalter steht auf AN');
   await shot(page, '1-hell-aktiv.png');
 
+  // Sponsor-Hinweise: erst nicht installiert, dann installiert und einschaltbar
+  ok(await page.isVisible('#sponsor-install') && !(await page.isVisible('#sw-sponsor')), 'Sponsor-Modul fehlt: Knopf „Installieren“ statt Schalter');
+  surge.available.push('YouTube Sponsor-Hinweise');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.waitForSelector('#sw-sponsor:not([hidden])');
+  ok(!(await page.isVisible('#sponsor-install')), 'Nach dem Installieren erscheint der Schalter');
+  await page.click('#sw-sponsor');
+  await page.waitForFunction(() => document.getElementById('sw-sponsor').getAttribute('aria-checked') === 'true');
+  ok(surge.enabled.includes('YouTube Sponsor-Hinweise'), 'Schalter schaltet das Sponsor-Modul in Surge ein');
+  ok(await titleIs(page, 'Schutz aktiv'), 'Status bleibt „Schutz aktiv“');
+
   await page.click('#sw-module');
   ok(await titleIs(page, 'Teilweise aktiv'), 'Modul aus: „Teilweise aktiv“');
   ok(!surge.enabled.includes(MODULE), 'Surge hat das Modul wirklich ausgeschaltet');

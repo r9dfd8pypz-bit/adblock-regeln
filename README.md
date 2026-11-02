@@ -50,13 +50,16 @@ Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/ap
 ## Inhalt
 
 ```
-modules/youtube-werbefrei.sgmodule   Surge-Modul (das abonniert Surge)
+modules/youtube-werbefrei.sgmodule   Surge-Modul gegen YouTube-Werbung (das abonniert Surge)
+modules/youtube-sponsor-hinweise.sgmodule  Optional: Mitteilung bei Influencer-Werbung (SponsorBlock)
+scripts/youtube/sponsor-hinweise.js  Eigenes Skript dazu
 scripts/youtube/youtube.response.js  YouTube-Skript (Apache-2.0, von Maasea/sgmodule)
 scripts/youtube/HERKUNFT.md          Herkunft und Prüfbericht des Skripts
 app/                                 Werbefrei-Zentrale (Web-App für den Home-Bildschirm)
 anleitung/                           Schritt-für-Schritt-Anleitungen fürs iPhone
 tests/pruefen.mjs                    Automatische Prüfung: node tests/pruefen.mjs
 tests/app-e2e.cjs                    App-Test gegen eine nachgebaute Surge-Schnittstelle (braucht Playwright)
+tests/sponsor-test.mjs               Test für das Sponsor-Skript: node tests/sponsor-test.mjs
 ```
 
 ## Etwas ändern lassen

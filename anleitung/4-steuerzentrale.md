@@ -76,3 +76,17 @@ Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschl�
 - Für **Alles sofort stoppen** und den **Hauptschalter** nutzt die App die offiziellen Surge-Befehle `surge:///stop` und `surge:///start`. Das iPhone fragt eventuell „In Surge öffnen?“. Danach wechselst du zurück in die App, und sie aktualisiert sich selbst.
 - Laut dem Projekt hinter Surges Web-Dashboard kann die HTTP-Schnittstelle nach dem Kauf ein aktives Update-Abo brauchen. Das konnte ich nicht sicher klären. In der Testwoche geht alles, und „Alles sofort stoppen“ und der Hauptschalter funktionieren in jedem Fall.
 - Wenn die App selbst einmal nicht reagiert: iPhone-**Einstellungen** öffnen und oben **VPN** ausschalten. Das stoppt Surge ebenfalls.
+
+## Sponsor-Hinweise (Werbung der Influencer im Video)
+
+Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen Nutzer weltweit ein, von wann bis wann das passiert.
+
+1. In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen. Surge fragt nach, bestätigen.
+2. Den Schalter **Sponsor-Hinweise** einschalten.
+3. Ein Video öffnen. Kennt SponsorBlock Stellen darin, kommt eine Mitteilung wie *„⏭ Sponsor bei 1:12 · 1:12–2:05 (53 s) · Tippen = weiter bei 2:05“*.
+4. Wenn die Stelle läuft: Mitteilungszentrale von oben herunterziehen und die Mitteilung antippen. YouTube springt dahinter.
+
+Gut zu wissen:
+- Es klappt nur bei Videos, die schon jemand eingetragen hat. Bei großen Kanälen ist das meist der Fall.
+- An SponsorBlock gehen nur 4 Zeichen eines Hashes der Video-Kennung, nicht das Video selbst.
+- In Surge kannst du beim Modul unter *Argumente* einstellen, was gemeldet wird (Sponsor, Eigenwerbung, Abo-Aufruf). Mit **Testmodus** kommt auch eine Mitteilung, wenn nichts gefunden wurde. Das ist praktisch zum Ausprobieren.

@@ -1,0 +1,13 @@
+#!name=YouTube Sponsor-Hinweise
+#!desc=Zeigt beim Öffnen eines Videos eine Mitteilung, wenn SponsorBlock Sponsor-Stellen kennt. Antippen springt hinter die Stelle.
+#!arguments=Sponsor:true,Eigenwerbung:true,AboAufruf:false,Testmodus:false
+#!arguments-desc=Sponsor: bezahlte Werbung im Video (true/false)\nEigenwerbung: Merch, eigene Produkte (true/false)\nAboAufruf: „Abonniert und liked“ (true/false)\nTestmodus: zeigt auch eine Mitteilung, wenn nichts gefunden wurde (true/false)
+
+# Läuft auf der Anfrage, mit der die YouTube-App ein Video öffnet (/youtubei/v1/next).
+# Die Anfrage wird nicht verändert. An SponsorBlock gehen nur 4 Zeichen eines Hashes der Video-Kennung.
+
+[Script]
+youtube.sponsor = type=http-request,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/next(\?.*)?$,requires-body=1,max-size=-1,binary-body-mode=1,timeout=10,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"debug":{{{Testmodus}}}}"
+
+[MITM]
+hostname = %APPEND% youtubei.googleapis.com

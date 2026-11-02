@@ -1,7 +1,7 @@
 // Prüft Modul und YouTube-Skript, bevor etwas ins Repo kommt.
 // Aufruf: node tests/pruefen.mjs
 //
-// 1. Modul: Skripte dürfen nur aus diesem Repo kommen, entschlüsselt werden nur erlaubte Adressen.
+// 1. Module: Skripte dürfen nur aus diesem Repo kommen, entschlüsselt werden nur erlaubte Adressen.
 // 2. Skript: Es muss genau die geprüfte Fassung sein (SHA-256) und darf keine fremden Server kennen.
 // 3. Probelauf: Das Skript bekommt eine künstliche YouTube-Antwort mit Werbung und muss
 //    die Werbung entfernen, ohne irgendeine Netzwerkanfrage zu stellen.
@@ -26,32 +26,30 @@ function ok(bedingung, text) {
   if (!bedingung) fehler++;
 }
 
-// ---------- 1. Modul ----------
-const modul = readFileSync(join(ROOT, "modules/youtube-werbefrei.sgmodule"), "utf8");
-const zeilen = modul.split("\n").filter((z) => !z.startsWith("#") || z.startsWith("#!"));
-
-const skriptPfade = [...modul.matchAll(/script-path=([^,\s]+)/g)].map((m) => m[1]);
-ok(skriptPfade.length > 0, "Modul enthält mindestens ein Skript");
-for (const url of skriptPfade) {
-  ok(url.startsWith(RAW_BASE), `Skript kommt aus dem eigenen Repo: ${url}`);
-  if (url.startsWith(RAW_BASE)) {
-    const datei = url.slice(RAW_BASE.length);
-    let vorhanden = true;
-    try { readFileSync(join(ROOT, datei)); } catch { vorhanden = false; }
-    ok(vorhanden, `Datei existiert im Repo: ${datei}`);
+// ---------- 1. Module ----------
+const MODULE = ["youtube-werbefrei.sgmodule", "youtube-sponsor-hinweise.sgmodule"];
+for (const name of MODULE) {
+  const text = readFileSync(join(ROOT, "modules", name), "utf8");
+  const zeilen = text.split("\n").filter((z) => !z.startsWith("#") || z.startsWith("#!"));
+  const skriptPfade = [...text.matchAll(/script-path=([^,\s]+)/g)].map((m) => m[1]);
+  ok(skriptPfade.length > 0, `${name}: enthält mindestens ein Skript`);
+  for (const url of skriptPfade) {
+    ok(url.startsWith(RAW_BASE), `${name}: Skript kommt aus dem eigenen Repo: ${url}`);
+    if (url.startsWith(RAW_BASE)) {
+      const datei = url.slice(RAW_BASE.length);
+      let vorhanden = true;
+      try { readFileSync(join(ROOT, datei)); } catch { vorhanden = false; }
+      ok(vorhanden, `${name}: Datei existiert im Repo: ${datei}`);
+    }
   }
+  const fremdeUrls = zeilen.join("\n").match(/https?:\/\/[^\s,"]+/g)?.filter((u) => !u.startsWith(RAW_BASE)) ?? [];
+  ok(fremdeUrls.length === 0, `${name}: keine fremden URLs ${fremdeUrls.join(" ")}`);
+  const mitmZeile = text.match(/^hostname\s*=\s*(.*)$/m)?.[1] ?? "";
+  const mitmHosts = mitmZeile.replace("%APPEND%", "").split(",").map((h) => h.trim()).filter(Boolean);
+  ok(mitmHosts.length > 0, `${name}: MITM-Adressen sind angegeben`);
+  for (const h of mitmHosts) ok(ERLAUBTE_MITM_HOSTS.has(h), `${name}: MITM nur für erlaubte Adresse: ${h}`);
 }
-
-const fremdeUrls = zeilen
-  .join("\n")
-  .match(/https?:\/\/[^\s,"]+/g)
-  ?.filter((u) => !u.startsWith(RAW_BASE)) ?? [];
-ok(fremdeUrls.length === 0, `Keine fremden URLs im Modul ${fremdeUrls.length ? fremdeUrls.join(" ") : ""}`);
-
-const mitmZeile = modul.match(/^hostname\s*=\s*(.*)$/m)?.[1] ?? "";
-const mitmHosts = mitmZeile.replace("%APPEND%", "").split(",").map((h) => h.trim()).filter(Boolean);
-ok(mitmHosts.length > 0, "MITM-Adressen sind angegeben");
-for (const h of mitmHosts) ok(ERLAUBTE_MITM_HOSTS.has(h), `MITM nur für erlaubte Adresse: ${h}`);
+const modul = readFileSync(join(ROOT, "modules/youtube-werbefrei.sgmodule"), "utf8");
 
 // ---------- 2. Skript ----------
 const skriptPfad = join(ROOT, "scripts/youtube/youtube.response.js");
@@ -65,6 +63,13 @@ const urlsImSkript = new Set(skript.match(/https?:\/\/[A-Za-z0-9._~:/?#@!$&+;=%-
 const unbekannt = [...urlsImSkript].filter((u) => !ERLAUBTE_URLS_IM_SKRIPT.has(u));
 ok(unbekannt.length === 0, `Skript enthält keine fremden Server ${unbekannt.join(" ")}`);
 ok(!/workers\.dev/.test(skript), "Skript enthält keinen Cloudflare-Worker");
+
+// Eigenes Sponsor-Skript: darf nur SponsorBlock fragen und keinen Code nachladen
+const sponsor = readFileSync(join(ROOT, "scripts/youtube/sponsor-hinweise.js"), "utf8");
+const sponsorHosts = new Set([...sponsor.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
+ok([...sponsorHosts].every((h) => h === "sponsor.ajay.app"), `Sponsor-Skript spricht nur mit SponsorBlock ${[...sponsorHosts].join(" ")}`);
+ok(!/\beval\(|new Function|\brequire\(|\bimport\(/.test(sponsor), "Sponsor-Skript lädt keinen fremden Code nach");
+ok(/sha256Hex\(id\)\.slice\(0, 4\)/.test(sponsor), "Sponsor-Skript sendet nur 4 Zeichen des Hashes");
 
 // ---------- App (Werbefrei-Zentrale) ----------
 const appHtml = readFileSync(join(ROOT, "app/index.html"), "utf8");
@@ -80,9 +85,11 @@ const appHosts = new Set([...(appHtml + appJs).matchAll(/https?:\/\/([a-z0-9.-]+
 const fremdeHosts = [...appHosts].filter((h) => !ERLAUBTE_APP_HOSTS.has(h));
 ok(fremdeHosts.length === 0, `App spricht nur mit Surge, NextDNS, GitHub und App Store ${fremdeHosts.join(" ")}`);
 ok(/surge:\/\/\/\$\{stop \? 'stop' : 'start'\}/.test(appJs), "NOTAUS nutzt den offiziellen Befehl surge:///stop");
-const installLink = appHtml.match(/href="surge:\/\/\/install-module\?url=([^"]+)"/)?.[1];
-ok(installLink && decodeURIComponent(installLink) === RAW_BASE + "modules/youtube-werbefrei.sgmodule",
-  "Knopf „In Surge installieren“ zeigt auf das Modul im eigenen Repo");
+const installLinks = [...appHtml.matchAll(/href="surge:\/\/\/install-module\?url=([^"]+)"/g)].map((m) => decodeURIComponent(m[1])).sort();
+ok(JSON.stringify(installLinks) === JSON.stringify([RAW_BASE + "modules/youtube-sponsor-hinweise.sgmodule", RAW_BASE + "modules/youtube-werbefrei.sgmodule"]),
+  "Installieren-Knöpfe zeigen auf die Module im eigenen Repo");
+ok(appJs.includes("const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';") && readFileSync(join(ROOT, "modules/youtube-sponsor-hinweise.sgmodule"), "utf8").includes("#!name=YouTube Sponsor-Hinweise"),
+  "App kennt den Namen des Sponsor-Moduls");
 
 // ---------- 3. Probelauf ----------
 // Kleine protobuf-Helfer

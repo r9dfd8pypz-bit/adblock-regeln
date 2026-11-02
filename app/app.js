@@ -14,6 +14,7 @@
     demo: false,
   });
   const POLL_MS = 5000;
+  const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -93,7 +94,7 @@
       async status() {
         await wait();
         if (!s.running) throw new ApiError('offline');
-        return { enabled: [...s.enabled], available: [cfg.module], mitm: s.mitm, scripting: s.scripting };
+        return { enabled: [...s.enabled], available: [cfg.module, SPONSOR_MODULE], mitm: s.mitm, scripting: s.scripting };
       },
       async setModule(name, on) {
         await wait();
@@ -169,6 +170,15 @@
     setSwitch($('sw-mitm'), !!(st && st.mitm), !running || busy('mitm') || busy('all'), busy('mitm'));
     setSwitch($('sw-scripting'), !!(st && st.scripting), !running || busy('scripting') || busy('all'), busy('scripting'));
     for (const id of ['btn-pause', 'btn-resume', 'btn-reload', 'btn-flush']) $(id).disabled = !running || busy('all');
+
+    const sponsorKnown = !!st && st.available.includes(SPONSOR_MODULE);
+    const sponsorOn = !!st && st.enabled.includes(SPONSOR_MODULE);
+    setSwitch($('sw-sponsor'), sponsorOn, !running || busy('sponsor') || busy('all'), busy('sponsor'));
+    $('sw-sponsor').hidden = !!st && !sponsorKnown;
+    $('sponsor-install').hidden = !(st && !sponsorKnown);
+    $('sponsor-sub').textContent = st && !sponsorKnown
+      ? 'Noch nicht in Surge installiert'
+      : 'Mitteilung bei Influencer-Werbung, antippen = überspringen';
 
     $('module-sub').textContent = st && !moduleKnown
       ? `Modul „${settings.module}“ ist in Surge nicht installiert`
@@ -458,6 +468,8 @@
     return {
       moduleOn: st.enabled.includes(settings.module),
       moduleKnown: st.available.includes(settings.module),
+      sponsorOn: st.enabled.includes(SPONSOR_MODULE),
+      sponsorKnown: st.available.includes(SPONSOR_MODULE),
       mitm: st.mitm, scripting: st.scripting,
       total: reqs.length, yt: yt.length, decrypted: decrypted.length, scripted: scripted.length,
       video: video.length, init: init.length, initLocal: initLocal.length,
@@ -483,6 +495,7 @@
       `Ergebnis: ${verdict(a)}`,
       `Modul „${settings.module}“: ${a.moduleKnown ? yn(a.moduleOn) : 'nicht installiert ❌'}`,
       `MitM: ${yn(a.mitm)} · Skripte: ${yn(a.scripting)}`,
+      `Sponsor-Hinweise: ${a.sponsorKnown ? (a.sponsorOn ? 'an' : 'aus') : 'nicht installiert'}`,
       `Letzte Anfragen gesamt: ${a.total}`,
       `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted}`,
       `Video-Server: ${a.video} · initplayback: ${a.init} · davon lokal beantwortet: ${a.initLocal}`,
@@ -595,6 +608,12 @@
         on ? 'Die Werbung wird wieder aus den Antworten gelöscht.' : 'Antworten werden nicht mehr verändert.');
     });
 
+    $('sw-sponsor').addEventListener('click', () => {
+      const on = $('sw-sponsor').getAttribute('aria-checked') !== 'true';
+      act('sponsor', () => backend.setModule(SPONSOR_MODULE, on),
+        on ? 'Sponsor-Hinweise eingeschaltet' : 'Sponsor-Hinweise ausgeschaltet',
+        on ? 'Beim nächsten Video mit SponsorBlock-Eintrag kommt eine Mitteilung.' : 'Es kommen keine Sponsor-Mitteilungen mehr.');
+    });
     $('btn-pause').addEventListener('click', () => act('all', async () => {
       if (state.status && state.status.available.includes(settings.module)) await backend.setModule(settings.module, false);
       await backend.setFeature('mitm', false);
