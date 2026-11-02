@@ -129,6 +129,9 @@
       <li><button type="button" class="row row-link" data-action="diag">
         <span class="tile" style="--tile: var(--indigo)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
         <span class="row-text"><strong>YouTube-Diagnose</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><button type="button" class="row row-link" data-action="sponsor">
+        <span class="tile" style="--tile: var(--orange)"><svg aria-hidden="true"><use href="#i-forward"/></svg></span>
+        <span class="row-text"><strong>Sponsor-Hinweise prüfen</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
       <li><button type="button" class="row row-link" id="btn-reload">
         <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span>
         <span class="row-text"><strong>Profil neu laden</strong><small>Holt auch neue Regeln aus deinem Repo</small></span></button></li>
@@ -175,6 +178,43 @@
       <button type="button" class="pill" id="btn-diag-copy" disabled>Bericht kopieren</button>
     </div>
     <pre class="code diag" id="diag-out" hidden></pre>
+  </div>
+</dialog>
+
+<!-- Sponsor-Hinweise prüfen -->
+<dialog class="sheet" id="dlg-sponsor" aria-labelledby="dlg-sponsor-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-sponsor-title">Sponsor-Hinweise</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
+  </header>
+  <div class="sheet-body help">
+    <ul class="list">
+      <li class="row"><span class="row-text"><strong>Modul</strong></span><span class="value" id="sp-module">–</span></li>
+      <li class="row"><span class="row-text"><strong>Letztes Video</strong><small id="sp-last">–</small></span></li>
+      <li class="row">
+        <label class="row-text" for="sp-debug"><strong>Testmodus</strong><small>Mitteilung auch, wenn nichts gefunden wurde</small></label>
+        <input id="sp-debug" type="checkbox" class="toggle">
+      </li>
+    </ul>
+    <div class="pill-row">
+      <button type="button" class="pill" id="btn-sp-test">Testmitteilung senden</button>
+      <button type="button" class="pill" id="btn-sp-refresh">Aktualisieren</button>
+    </div>
+    <h3 class="section-header">So testest du</h3>
+    <ol class="list text-list">
+      <li>Auf <strong>Testmitteilung senden</strong> tippen. Kommt keine Mitteilung: iPhone-Einstellungen → Mitteilungen → <strong>Surge</strong> → Mitteilungen erlauben.</li>
+      <li><strong>Testmodus</strong> oben einschalten.</li>
+      <li>YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video starten. Im Testmodus kommt jetzt bei jedem Video eine Mitteilung mit dem Ergebnis.</li>
+      <li>Hier auf <strong>Aktualisieren</strong> tippen. Unter „Letztes Video“ steht, was passiert ist.</li>
+    </ol>
+    <h3 class="section-header">Was die Meldungen bedeuten</h3>
+    <dl class="list text-list">
+      <div><dt>Noch kein Video geprüft</dt><dd>Das Modul greift nicht. Ist es oben „an“? YouTube einmal ganz schließen und neu öffnen.</dd></div>
+      <div><dt>Für dieses Video ist nichts eingetragen</dt><dd>Alles funktioniert, nur kennt SponsorBlock dieses Video nicht. Ein Video eines großen Kanals ausprobieren.</dd></div>
+      <div><dt>SponsorBlock nicht erreichbar</dt><dd>Eventuell sperrt NextDNS die Adresse sponsor.ajay.app. In den NextDNS-Logs nachsehen und freigeben.</dd></div>
+      <div><dt>Keine Video-Kennung gefunden</dt><dd>YouTube hat etwas geändert. Schick mir einen Screenshot.</dd></div>
+    </dl>
   </div>
 </dialog>
 

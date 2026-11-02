@@ -15,6 +15,8 @@
   });
   const POLL_MS = 5000;
   const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';
+  const SPONSOR_STATUS_KEY = 'werbefrei.sponsor.status';
+  const SPONSOR_DEBUG_KEY = 'werbefrei.sponsor.debug';
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -81,6 +83,8 @@
       reloadProfile: () => call('/profiles/reload', 'POST'),
       flushDns: () => call('/dns/flush', 'POST'),
       recentRequests: () => call('/requests/recent'),
+      // Führt ein kleines Skript in Surge aus (für Status, Testmodus, Testmitteilung).
+      evaluate: (code) => call('/scripting/evaluate', 'POST', { script_text: code, mock_type: 'cron', timeout: 5 }),
     };
   }
 
@@ -114,6 +118,15 @@
           { URL: demoUrl('rr1---sn-demo.googlevideo.com', '/initplayback?ack=1'), modified: true, notes: ['[Map Local] Mapped'], rule: 'FINAL', policyName: 'DIRECT' },
         ] };
       },
+      async evaluate(code) {
+        await wait();
+        const m = /write\("(true|false)"/.exec(code);
+        if (m) { s.sponsorDebug = m[1]; save(); }
+        return { result: {
+          status: JSON.stringify({ t: Date.now() - 90000, step: 'gemeldet', text: '2 Stellen gemeldet', count: 2 }),
+          debug: s.sponsorDebug || 'false',
+        } };
+      },
       setRunning(on) { s.running = on; save(); },
     };
   }
@@ -137,6 +150,7 @@
       try {
         state.status = await backend.status();
         state.reach = 'ok';
+        state.sponsor = state.status.available.includes(SPONSOR_MODULE) ? await readSponsor().catch(() => null) : null;
         if (!settings.demo) storage.set('everConnected', true);
       } catch (e) {
         state.status = null;
@@ -178,7 +192,9 @@
     $('sponsor-install').hidden = !(st && !sponsorKnown);
     $('sponsor-sub').textContent = st && !sponsorKnown
       ? 'Noch nicht in Surge installiert'
-      : 'Mitteilung bei Influencer-Werbung, antippen = überspringen';
+      : sponsorOn && state.sponsor
+        ? describeSponsor(state.sponsor)
+        : 'Mitteilung bei Influencer-Werbung, antippen = überspringen';
 
     $('module-sub').textContent = st && !moduleKnown
       ? `Modul „${settings.module}“ ist in Surge nicht installiert`
@@ -525,6 +541,39 @@
     }
   }
 
+  // ---------- Sponsor-Hinweise prüfen ----------
+  async function readSponsor() {
+    const code = `$done({ status: $persistentStore.read(${JSON.stringify(SPONSOR_STATUS_KEY)}), debug: $persistentStore.read(${JSON.stringify(SPONSOR_DEBUG_KEY)}) });`;
+    const res = await backend.evaluate(code);
+    const r = (res && res.result) || {};
+    let last = null;
+    try { last = r.status ? JSON.parse(r.status) : null; } catch { last = null; }
+    return { last, debug: r.debug === 'true' };
+  }
+  function describeSponsor(sp) {
+    if (!sp || !sp.last) return 'Noch kein Video geprüft';
+    const time = new Date(sp.last.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return `Zuletzt ${time}: ${sp.last.text}`;
+  }
+  async function fillSponsorSheet() {
+    const st = state.status;
+    const known = !!st && st.available.includes(SPONSOR_MODULE);
+    const on = !!st && st.enabled.includes(SPONSOR_MODULE);
+    $('sp-module').textContent = !st ? 'Surge nicht verbunden' : !known ? 'nicht installiert' : on ? 'an' : 'aus';
+    if (!st) { $('sp-last').textContent = '–'; return; }
+    try {
+      state.sponsor = await readSponsor();
+      $('sp-last').textContent = describeSponsor(state.sponsor);
+      $('sp-debug').checked = state.sponsor.debug;
+    } catch (e) {
+      $('sp-last').textContent = `Nicht lesbar: ${errorText(e)}`;
+    }
+  }
+  function openSponsor() {
+    $('dlg-sponsor').showModal();
+    fillSponsorSheet();
+  }
+
   // ---------- Einrichtungs-Assistent ----------
   let setupDone = storage.get('setupDone', {});
   const NEXTDNS_ID = /^[a-z0-9]{4,12}$/i;
@@ -614,6 +663,26 @@
         on ? 'Sponsor-Hinweise eingeschaltet' : 'Sponsor-Hinweise ausgeschaltet',
         on ? 'Beim nächsten Video mit SponsorBlock-Eintrag kommt eine Mitteilung.' : 'Es kommen keine Sponsor-Mitteilungen mehr.');
     });
+    $('sp-debug').addEventListener('change', async () => {
+      const on = $('sp-debug').checked;
+      try {
+        await backend.evaluate(`$persistentStore.write(${JSON.stringify(on ? 'true' : 'false')}, ${JSON.stringify(SPONSOR_DEBUG_KEY)}); $done({});`);
+        log(on ? 'Sponsor-Testmodus an' : 'Sponsor-Testmodus aus');
+        balloon(on ? 'Testmodus an' : 'Testmodus aus', on ? 'Jetzt kommt bei jedem Video eine Mitteilung mit dem Ergebnis.' : 'Mitteilungen nur noch, wenn Sponsor-Stellen gefunden werden.');
+      } catch (e) {
+        $('sp-debug').checked = !on;
+        balloon('Hat nicht geklappt', errorText(e), 'bad');
+      }
+    });
+    $('btn-sp-test').addEventListener('click', async () => {
+      try {
+        await backend.evaluate("$notification.post('Werbefrei', 'Testmitteilung', 'Wenn du das siehst, können Sponsor-Hinweise angezeigt werden.'); $done({});");
+        balloon('Testmitteilung gesendet', 'Kommt keine Mitteilung: Einstellungen → Mitteilungen → Surge → erlauben.');
+      } catch (e) {
+        balloon('Hat nicht geklappt', errorText(e), 'bad');
+      }
+    });
+    $('btn-sp-refresh').addEventListener('click', fillSponsorSheet);
     $('btn-pause').addEventListener('click', () => act('all', async () => {
       if (state.status && state.status.available.includes(settings.module)) await backend.setModule(settings.module, false);
       await backend.setFeature('mitm', false);
@@ -672,6 +741,7 @@
       else if (action === 'help') $('dlg-help').showModal();
       else if (action === 'log') { renderLog(); $('dlg-log').showModal(); }
       else if (action === 'diag') { $('dlg-diag').showModal(); runDiagnosis(); }
+      else if (action === 'sponsor') openSponsor();
     });
     for (const b of document.querySelectorAll('[data-theme-choice]')) {
       b.addEventListener('click', () => applyTheme(b.dataset.themeChoice, true));

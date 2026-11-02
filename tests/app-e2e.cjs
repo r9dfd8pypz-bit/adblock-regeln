@@ -6,6 +6,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const vm = require('node:vm');
 
 const APP_DIR = path.join(__dirname, '..', 'app');
 const SHOT_DIR = process.argv[2];
@@ -19,7 +20,8 @@ function ok(cond, text) {
 }
 
 // ---------- Nachgebaute Surge-Schnittstelle ----------
-const surge = { enabled: [MODULE], available: [MODULE, 'Anderes Modul'], mitm: true, scripting: true, calls: [] };
+const surge = { enabled: [MODULE], available: [MODULE, 'Anderes Modul'], mitm: true, scripting: true, calls: [], notes: [],
+  store: new Map([['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })]]) };
 function surgeHandler(req, res) {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -50,6 +52,15 @@ function surgeHandler(req, res) {
       return send({ enabled: surge[feature[1]] });
     }
     if (url === '/v1/profiles/reload' || url === '/v1/dns/flush') return send({});
+    if (url === '/v1/scripting/evaluate') {
+      // Skript wirklich ausführen, mit nachgebautem Speicher und Mitteilungen
+      vm.runInNewContext(data.script_text, {
+        $persistentStore: { read: (k) => surge.store.get(k) ?? null, write: (v, k) => { surge.store.set(k, v); return true; } },
+        $notification: { post: (...a) => surge.notes.push(a) },
+        $done: (r) => send({ result: r ?? null, output: '' }),
+      });
+      return undefined;
+    }
     if (url === '/v1/requests/recent') {
       return send({ requests: [
         { URL: 'youtubei.googleapis.com:443', modified: false, notes: ['[MITM] skipped'], rule: 'FINAL', policyName: 'DIRECT' },
@@ -121,6 +132,23 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.waitForFunction(() => document.getElementById('sw-sponsor').getAttribute('aria-checked') === 'true');
   ok(surge.enabled.includes('YouTube Sponsor-Hinweise'), 'Schalter schaltet das Sponsor-Modul in Surge ein');
   ok(await titleIs(page, 'Schutz aktiv'), 'Status bleibt „Schutz aktiv“');
+  await page.waitForFunction(() => /^Zuletzt \d\d:\d\d: Für dieses Video ist nichts eingetragen$/.test(document.getElementById('sponsor-sub').textContent));
+  ok(true, 'Zeile zeigt, was beim letzten Video passiert ist');
+
+  // Sponsor-Hinweise prüfen
+  await page.click('[data-action="sponsor"]');
+  ok(await page.isVisible('#dlg-sponsor'), 'Prüf-Seite für Sponsor-Hinweise öffnet sich');
+  await page.waitForFunction(() => document.getElementById('sp-module').textContent === 'an');
+  ok((await page.textContent('#sp-last')).includes('nichts eingetragen'), 'Prüf-Seite zeigt das letzte Ergebnis');
+  await page.click('label[for="sp-debug"]');
+  await page.waitForFunction(() => true);
+  await page.waitForTimeout(300);
+  ok(surge.store.get('werbefrei.sponsor.debug') === 'true', 'Testmodus lässt sich in der App einschalten');
+  await page.click('#btn-sp-test');
+  await page.waitForTimeout(300);
+  ok(surge.notes.length === 1 && surge.notes[0][1] === 'Testmitteilung', 'Testmitteilung wird über Surge verschickt');
+  await shot(page, '9-hell-sponsor.png');
+  await page.click('#dlg-sponsor [data-close]');
 
   await page.click('#sw-module');
   ok(await titleIs(page, 'Teilweise aktiv'), 'Modul aus: „Teilweise aktiv“');

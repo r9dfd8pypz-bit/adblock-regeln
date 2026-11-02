@@ -224,6 +224,7 @@ code { font: 0.92em var(--mono); }
 .row-text { flex: 1; min-width: 0; display: grid; gap: 1px; cursor: pointer; }
 .row-text strong { font-weight: 400; }
 .row-text small { font-size: 13px; color: var(--secondary); }
+.value { margin-left: auto; color: var(--secondary); }
 .chev { width: 16px; height: 16px; flex: none; color: var(--tertiary); }
 
 .tile {
@@ -453,7 +454,8 @@ dialog.sheet .row .toggle { margin-left: auto; }
 
 /* Hilfe */
 .text-list { padding: 4px 0; }
-ol.text-list { padding-left: 34px; }
+ol.list.text-list { list-style: decimal outside; padding-left: 36px; }
+ol.text-list li::marker { color: var(--secondary); font-weight: 600; }
 .text-list li, .text-list > div { padding: 10px 16px 10px 0; font-size: 15px; line-height: 1.4; }
 dl.text-list > div { padding-left: 16px; }
 .text-list dt { font-weight: 600; }

@@ -12,6 +12,8 @@
 
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const STORE_KEY = 'werbefrei.sponsor.last';
+  const STATUS_KEY = 'werbefrei.sponsor.status';   // letzter Ablauf, liest die Werbefrei-App
+  const DEBUG_KEY = 'werbefrei.sponsor.debug';     // Testmodus, setzt die Werbefrei-App
   const DEDUPE_MS = 15 * 60 * 1000;
   const TIMEOUT_MS = 4500;
   const MAX_NOTES = 3;
@@ -23,7 +25,11 @@
     if (timer) { clearTimeout(timer); timer = null; }
     if (!finished) { finished = true; $done({}); }
   };
-  timer = setTimeout(finish, TIMEOUT_MS);
+  timer = setTimeout(() => {
+    timer = null;
+    status('fehler', 'SponsorBlock hat nicht rechtzeitig geantwortet');
+    finish();
+  }, TIMEOUT_MS);
 
   function config() {
     const c = { sponsor: true, selfpromo: true, interaction: false, debug: false };
@@ -34,7 +40,12 @@
     return c;
   }
   const cfg = config();
+  try { if ($persistentStore.read(DEBUG_KEY) === 'true') cfg.debug = true; } catch (e) { /* egal */ }
   const debug = (title, text) => { if (cfg.debug) $notification.post('Sponsor-Hinweise (Test)', title, text || ''); };
+  // Merkt sich, was beim letzten Video passiert ist (nur auf dem iPhone, ohne Video-Kennung).
+  const status = (step, text, count) => {
+    try { $persistentStore.write(JSON.stringify({ t: Date.now(), step, text, count: count || 0 }), STATUS_KEY); } catch (e) { /* egal */ }
+  };
 
   // ---------- Video-Kennung ----------
   const ID_RE = /^[A-Za-z0-9_-]{11}$/;
@@ -183,25 +194,36 @@
       return idFromProtobuf(b);
     })();
 
-    if (!id) { debug(reason, ''); finish(); return; }
-    if (recentlyNotified(id)) { finish(); return; }
+    if (!id) { status('ohne-video', reason); debug(reason, ''); finish(); return; }
+    if (recentlyNotified(id)) { status('doppelt', 'Video wurde gerade schon gemeldet'); debug('Schon gemeldet', 'Dieses Video wurde in den letzten 15 Minuten schon geprüft.'); finish(); return; }
 
     const prefix = sha256Hex(id).slice(0, 4);
     const cats = Object.keys(LABELS).filter((k) => cfg[k] === true);
-    if (!cats.length) { finish(); return; }
+    if (!cats.length) { status('aus', 'Alle Kategorien ausgeschaltet'); finish(); return; }
+    status('abfrage', 'Frage SponsorBlock …');
     const url = `${API}${prefix}?categories=${encodeURIComponent(JSON.stringify(cats))}&actionTypes=${encodeURIComponent('["skip"]')}`;
 
     $httpClient.get({ url, timeout: 4, headers: { 'User-Agent': 'Werbefrei-Sponsor/1.0' } }, (err, resp, data) => {
       try {
-        const status = resp && (resp.status || resp.statusCode);
-        if (err || status === 404 || !data) {
+        const code = resp && (resp.status || resp.statusCode);
+        if (err) {
+          status('fehler', `SponsorBlock nicht erreichbar: ${String(err).slice(0, 80)}`);
+          debug('SponsorBlock nicht erreichbar', String(err).slice(0, 120));
+          return;
+        }
+        if (code === 404 || !data) {
           remember(id);
-          debug('Keine Sponsor-Daten', `Video ${id}`);
+          status('keine-daten', 'Für dieses Video ist nichts eingetragen');
+          debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
           return;
         }
         const segments = pickSegments(JSON.parse(data), id);
         remember(id);
-        if (!segments.length) { debug('Keine passenden Stellen', `Video ${id}`); return; }
+        if (!segments.length) {
+          status('keine-daten', 'Für dieses Video ist nichts eingetragen');
+          debug('Keine passenden Stellen', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
+          return;
+        }
         for (const s of segments) {
           const label = LABELS[s.category] || 'Sponsor';
           const len = Math.round(s.end - s.start);
@@ -213,7 +235,9 @@
             { action: 'open-url', url: link },
           );
         }
+        status('gemeldet', segments.length === 1 ? '1 Stelle gemeldet' : `${segments.length} Stellen gemeldet`, segments.length);
       } catch (e) {
+        status('fehler', String(e && e.message ? e.message : e).slice(0, 80));
         debug('Fehler', String(e && e.message ? e.message : e));
       } finally {
         finish();

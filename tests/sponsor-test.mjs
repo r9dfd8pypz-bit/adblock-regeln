@@ -71,6 +71,9 @@ const sponsorData = JSON.stringify([
   ok(t2 === '⏭ Eigenwerbung bei 1:00:00', `Lange Videos mit Stunden: ${t2}`);
   ok(r.doneCount === 1 && r.result && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 
+  const st = JSON.parse(r.store.get('werbefrei.sponsor.status') || '{}');
+  ok(st.step === 'gemeldet' && st.count === 2 && !JSON.stringify(st).includes(ID), `Merkt sich den Ablauf ohne Video-Kennung: ${st.text}`);
+
   // 2. Gleiches Video nochmal (z. B. nach dem Sprung): keine doppelte Mitteilung
   const again = await run({ body: nextRequest(ID), reply: (cb) => cb(null, { status: 200 }, sponsorData), store: r.store });
   ok(again.calls.length === 0 && again.notes.length === 0, 'Keine doppelte Mitteilung beim Zurückspringen');
@@ -82,6 +85,7 @@ const sponsorData = JSON.stringify([
   const p = createHash('sha256').update('dQw4w9WgXcQ').digest('hex').slice(0, 4);
   ok(r.calls[0] && r.calls[0].url.includes(`/skipSegments/${p}?`), 'Liest die Kennung auch aus der Adresse');
   ok(r.notes.length === 0 && r.doneCount === 1, 'Keine Daten (404): keine Mitteilung, kein Fehler');
+  ok(JSON.parse(r.store.get('werbefrei.sponsor.status')).step === 'keine-daten', 'Merkt sich „keine Daten“');
 }
 
 // 4. Komprimierte Anfrage im Testmodus
@@ -89,6 +93,13 @@ const sponsorData = JSON.stringify([
   const r = await run({ body: [0x1f, 0x8b, 8, 0, 0], argument: '{"sponsor":true,"selfpromo":true,"interaction":false,"debug":true}' });
   ok(r.calls.length === 0 && r.doneCount === 1, 'Komprimierte Anfrage: nichts abgefragt, Anfrage läuft weiter');
   ok(r.notes.length === 1 && r.notes[0][1] === 'Anfrage ist komprimiert', 'Testmodus meldet den Grund');
+}
+
+// 4b. Testmodus über die Werbefrei-App (gespeicherter Schalter statt Surge-Argument)
+{
+  const store = new Map([['werbefrei.sponsor.debug', 'true']]);
+  const r = await run({ body: nextRequest('Abc123xyz_-'), store, reply: (cb) => cb(null, { status: 404 }, '') });
+  ok(r.notes.length === 1 && r.notes[0][1] === 'Keine Sponsor-Daten', 'Testmodus aus der App meldet auch „keine Daten“');
 }
 
 // 5. Fortsetzungs-Anfrage ohne Video (z. B. Kommentare nachladen)
@@ -103,6 +114,7 @@ const sponsorData = JSON.stringify([
   const r = await run({ body: nextRequest('xyzXYZ12345') });
   const ms = Date.now() - t0;
   ok(r.doneCount === 1 && ms < 5200, `Bei Funkstille geht es nach ${Math.round(ms / 100) / 10} s weiter`);
+  ok(/nicht rechtzeitig/.test(JSON.parse(r.store.get('werbefrei.sponsor.status')).text), 'Merkt sich die Zeitüberschreitung');
 }
 
 // 7. SHA-256 stimmt mit Node überein
