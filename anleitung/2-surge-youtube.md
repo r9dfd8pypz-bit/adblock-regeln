@@ -40,11 +40,12 @@ Deine ID kommt absichtlich **nicht** ins öffentliche Repo.
 
 ## 4. Zertifikat einrichten (für die Entschlüsselung)
 
-1. Surge → **MitM** → **Generate New CA Certificate** (neues Zertifikat erzeugen).
-2. **Install Certificate** tippen und den Download erlauben.
-3. In den Einstellungen bei **Profil geladen** auf **Installieren** tippen.
-4. **Wichtig, sonst geht es nicht:** Einstellungen → Allgemein → **Info** → ganz unten **Zertifikatsvertrauenseinstellungen** → das Surge-Zertifikat **einschalten**.
-5. Zurück in Surge **MitM einschalten**. Welche Adressen entschlüsselt werden, legt das Modul fest. Trag dort selbst **nichts** dazu ein.
+1. Surge → **Home** → Tab **Capture** → Karte **MitM** → **Configure**.
+2. Gibt es noch kein Zertifikat: **Generate A New CA Certificate** tippen. Das machst du **nur ein einziges Mal**. Ein neu erzeugtes Zertifikat passt nicht mehr zum installierten.
+3. **Install CA Certificate to System** tippen und den Download erlauben.
+4. In den Einstellungen bei **Profil geladen** auf **Installieren** tippen. Steht dort nichts, findest du es unter Einstellungen → Allgemein → VPN und Geräteverwaltung.
+5. **Wichtig, sonst geht es nicht:** Einstellungen → Allgemein → **Info** → ganz unten **Zertifikatsvertrauenseinstellungen** → das Surge-Zertifikat **mit demselben Code** wie in Surge (z. B. `C51A7E98`) **einschalten**.
+6. Zurück in Surge: Unter dem Zertifikat darf **nicht mehr „Not installed“** stehen. **Skip Server Certificate Verification** ausschalten. Den MitM-Schalter einschalten. Welche Adressen entschlüsselt werden, legt das Modul fest. Trag dort selbst **nichts** dazu ein.
 
 ## 5. Surge starten
 
