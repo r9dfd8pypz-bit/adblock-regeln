@@ -304,9 +304,10 @@
       refresh();
       return;
     }
-    const url = `surge:///${stop ? 'stop' : 'start'}?autoclose=true`;
+    // Ohne autoclose: Surge bleibt offen, und oben links erscheint „◀ Werbefrei“ für den Rückweg.
+    const url = `surge:///${stop ? 'stop' : 'start'}`;
     window.__letzteExterneUrl = url;
-    balloon(stop ? 'Surge wird gestoppt' : 'Surge wird gestartet', 'Falls das iPhone fragt: „Öffnen“ tippen. Danach zurück in diese App.');
+    balloon(stop ? 'Surge wird gestoppt' : 'Surge wird gestartet', 'Surge öffnet sich. Zurück hierher: oben links auf „◀ Werbefrei“ tippen.');
     window.location.href = url;
     setTimeout(refresh, 2000);
   }
@@ -471,6 +472,14 @@
     $('dlg-setup').showModal();
     refresh();
   }
+  // Öffnet die Schnittstelle direkt im Browser. Was dort erscheint, zeigt die Ursache:
+  // Text mit { … } = Schnittstelle läuft · Zertifikatswarnung = Zertifikat nicht vertraut ·
+  // „Seite kann nicht geöffnet werden“ = Schnittstelle läuft nicht.
+  function probeInBrowser(cfg) {
+    const url = `${String(cfg.base).replace(/\/+$/, '')}/v1/modules?x-key=${encodeURIComponent(cfg.key)}`;
+    window.__letzteExterneUrl = url;
+    window.open(url, '_blank', 'noopener');
+  }
   async function testConnection(cfg) {
     balloon('Teste …', 'Verbinde mit Surge.');
     try {
@@ -479,7 +488,7 @@
       balloon('Verbindung klappt', found ? `Modul „${cfg.module}“ gefunden.` : `Verbunden, aber Modul „${cfg.module}“ fehlt in Surge.`, found ? 'info' : 'bad');
       return true;
     } catch (e) {
-      balloon('Keine Verbindung', `${errorText(e)} Stehen die Zeilen im Surge-Profil, und ist das Surge-Zertifikat vertrauenswürdig?`, 'bad');
+      balloon('Keine Verbindung', `${errorText(e)} Tippe auf „Im Browser prüfen“, dann sehen wir, woran es liegt.`, 'bad');
       return false;
     }
   }
@@ -553,6 +562,7 @@
       else if (what === 'copy') copyText(setupLines());
       else if (what === 'start') openSurge('start');
       else if (what === 'test') testConnection(settings).then(() => refresh());
+      else if (what === 'probe') probeInBrowser(settings);
     });
     $('btn-help').addEventListener('click', () => $('dlg-help').showModal());
     $('btn-theme').addEventListener('click', () => {
@@ -592,6 +602,7 @@
     for (const id of ['f-base', 'f-key']) $(id).addEventListener('input', updateLines);
     $('btn-genkey').addEventListener('click', () => { $('f-key').value = generateKey(); updateLines(); });
     $('btn-copy').addEventListener('click', () => copyText($('f-lines').textContent));
+    $('btn-probe').addEventListener('click', () => probeInBrowser(readForm()));
     $('btn-cert').addEventListener('click', () => {
       const f = readForm();
       const url = `${f.base.replace(/\/+$/, '')}/v1/mitm/ca?x-key=${encodeURIComponent(f.key)}`;

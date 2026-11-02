@@ -181,6 +181,7 @@
         <div class="btn-row">
           <button type="button" class="btn btn-small" id="btn-copy">Zeilen kopieren</button>
           <button type="button" class="btn btn-small" id="btn-test">Verbindung testen</button>
+          <button type="button" class="btn btn-small" id="btn-probe">Im Browser prüfen</button>
           <button type="button" class="btn btn-small" id="btn-cert">Zertifikat laden</button>
         </div>
       </fieldset>
@@ -279,8 +280,10 @@
       </li>
       <li class="step" data-step="verbinden">
         <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">Surge starten und verbinden</span></label>
-        <p>Wenn in der App oben „Schutz aktiv“ mit grünem Schild steht, hat alles geklappt.</p>
-        <div class="btn-row"><button type="button" class="btn" data-setup="start">Surge starten</button><button type="button" class="btn" data-setup="test">Verbindung testen</button></div>
+        <p>Erst in Surge <strong>STOP</strong> und wieder <strong>START</strong> tippen, damit Surge die neuen Zeilen liest. Dann hier <strong>Verbindung testen</strong>. Steht oben „Schutz aktiv“ mit grünem Schild, hat alles geklappt.</p>
+        <div class="btn-row"><button type="button" class="btn" data-setup="test">Verbindung testen</button><button type="button" class="btn" data-setup="probe">Im Browser prüfen</button></div>
+        <p class="hint">„Im Browser prüfen“ öffnet die Schnittstelle direkt. Text mit <code>{ … }</code> = läuft. Zertifikatswarnung = Zertifikat noch nicht vertraut. „Seite kann nicht geöffnet werden“ = Surge liest die Zeilen nicht.</p>
+        <div class="btn-row"><button type="button" class="btn" data-setup="start">Surge öffnen und starten</button></div>
       </li>
       <li class="step" data-step="youtube">
         <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">YouTube testen</span></label>

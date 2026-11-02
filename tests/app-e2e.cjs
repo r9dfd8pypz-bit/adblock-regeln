@@ -119,7 +119,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
 
   await page.click('#btn-notaus');
   const url = await page.evaluate(() => window.__letzteExterneUrl);
-  ok(url === 'surge:///stop?autoclose=true', `NOTAUS ruft ${url} auf`);
+  ok(url === 'surge:///stop', `NOTAUS ruft ${url} auf`);
 
   // Surge aus: Server stoppen
   await new Promise((r) => surgeServer.close(r));
@@ -127,7 +127,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(await titleIs(page, 'Surge ist aus'), 'Surge nicht erreichbar: „Surge ist aus“');
   ok(await page.getAttribute('#sw-module', 'disabled') !== null, 'Filterschalter sind gesperrt, solange Surge aus ist');
   await page.click('#sw-surge');
-  ok(await page.evaluate(() => window.__letzteExterneUrl) === 'surge:///start?autoclose=true', 'Hauptschalter startet Surge über surge:///start');
+  ok(await page.evaluate(() => window.__letzteExterneUrl) === 'surge:///start', 'Hauptschalter startet Surge über surge:///start');
   surgeServer = http.createServer(surgeHandler);
   await listen(surgeServer, 6171, '127.0.0.1');
   ok(await titleIs(page, 'Schutz aktiv'), 'Nach dem Start wieder „Schutz aktiv“');
@@ -177,6 +177,12 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   });
   ok(balloonOnTop, 'Sprechblase liegt bei offenem Assistenten sichtbar oben');
   await fresh.page.click('#balloon-close');
+  const [probePage] = await Promise.all([
+    fresh.ctx.waitForEvent('page'),
+    fresh.page.click('.step[data-step="verbinden"] [data-setup="probe"]'),
+  ]);
+  ok(probePage.url() === `http://127.0.0.1:6171/v1/modules?x-key=${genKey}`, '„Im Browser prüfen“ öffnet die Schnittstelle mit Schlüssel');
+  await probePage.close();
   await fresh.page.click('.step[data-step="nextdns-konto"] .step-check');
   ok(await fresh.page.textContent('#setup-progress') === '1 von 9 Schritten erledigt', 'Abhaken zählt den Fortschritt');
   await shot(fresh.page, '7-hell-einrichtung.png');
