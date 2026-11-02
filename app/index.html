@@ -98,6 +98,16 @@
       </fieldset>
 
       <fieldset class="group">
+        <legend>YouTube-Diagnose</legend>
+        <p class="hint">Erst ein paar Sekunden YouTube benutzen (Startseite, ein Video), dann hier prüfen. Den Bericht kannst du kopieren und mir schicken.</p>
+        <div class="btn-row">
+          <button type="button" class="btn" id="btn-diag">Diagnose starten</button>
+          <button type="button" class="btn" id="btn-diag-copy" disabled>Bericht kopieren</button>
+        </div>
+        <pre class="code diag" id="diag-out" hidden></pre>
+      </fieldset>
+
+      <fieldset class="group">
         <legend>NextDNS</legend>
         <div class="row">
           <div class="row-text"><strong id="dns-title">Noch nicht geprüft</strong><span id="dns-text">Sperrt Werbe-Domains in allen Apps</span></div>

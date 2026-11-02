@@ -669,6 +669,7 @@ dialog.dialog .titlebar { position: sticky; top: 0; z-index: 1; }
 }
 .field-inline { display: flex; gap: 8px; }
 .field-inline input { flex: 1; min-width: 0; }
+.code.diag { max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; }
 .code {
   margin: 6px 0 0;
   padding: 10px;

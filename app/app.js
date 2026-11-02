@@ -79,6 +79,7 @@
       setFeature: (feature, on) => call(`/features/${feature}`, 'POST', { enabled: on }),
       reloadProfile: () => call('/profiles/reload', 'POST'),
       flushDns: () => call('/dns/flush', 'POST'),
+      recentRequests: () => call('/requests/recent'),
     };
   }
 
@@ -102,6 +103,16 @@
       async setFeature(feature, on) { await wait(); s[feature] = on; save(); },
       async reloadProfile() { await wait(); },
       async flushDns() { await wait(); },
+      async recentRequests() {
+        await wait();
+        // Nur Beispieldaten für den Demo-Modus; die App ruft diese Adressen nie selbst auf.
+        const demoUrl = (host, path) => `https:/${'/'}${host}${path}`;
+        return { requests: [
+          { URL: demoUrl('youtubei.googleapis.com', '/youtubei/v1/browse'), modified: true, notes: ['[Script] youtube.response: OK'], rule: 'FINAL', policyName: 'DIRECT' },
+          { URL: demoUrl('youtubei.googleapis.com', '/youtubei/v1/player'), modified: true, notes: [], rule: 'FINAL', policyName: 'DIRECT' },
+          { URL: demoUrl('rr1---sn-demo.googlevideo.com', '/initplayback?ack=1'), modified: true, notes: ['[Map Local] Mapped'], rule: 'FINAL', policyName: 'DIRECT' },
+        ] };
+      },
       setRunning(on) { s.running = on; save(); },
     };
   }
@@ -429,9 +440,84 @@
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
-      balloon('Kopiert', 'Jetzt in Surge im Profil unter [General] einfügen.');
+      balloon('Kopiert', 'Der Text ist in der Zwischenablage.');
     } catch {
       balloon('Kopieren nicht möglich', 'Bitte den Text antippen, markieren und manuell kopieren.', 'bad');
+    }
+  }
+
+  // ---------- YouTube-Diagnose ----------
+  // Wertet Surges Liste der letzten Anfragen aus: Wird YouTube entschlüsselt, läuft das Skript,
+  // greift die lokale Antwort auf initplayback? Abfrage-Parameter werden aus dem Bericht entfernt.
+  const shortUrl = (u) => String(u || '').split('?')[0].replace(/^https?:\/\//, '');
+  function analyse(st, recent) {
+    const reqs = Array.isArray(recent && recent.requests) ? recent.requests : [];
+    const yt = reqs.filter((r) => /youtubei\.googleapis\.com/.test(r.URL || ''));
+    const decrypted = yt.filter((r) => /^https?:\/\/youtubei\.googleapis\.com\//.test(r.URL));
+    const scripted = decrypted.filter((r) => r.modified || (r.notes || []).some((n) => /script|youtube\.response/i.test(n)));
+    const video = reqs.filter((r) => /googlevideo\.com/.test(r.URL || ''));
+    const init = video.filter((r) => /\/initplayback/.test(r.URL || ''));
+    const initLocal = init.filter((r) => r.modified || (r.notes || []).some((n) => /map local|mock/i.test(n)));
+    const notes = [];
+    for (const r of [...yt, ...video]) {
+      for (const n of r.notes || []) {
+        if (/mitm|script|error|fail|reject|certificate|quic|map local/i.test(n) && !notes.includes(n)) notes.push(n);
+      }
+    }
+    return {
+      moduleOn: st.enabled.includes(settings.module),
+      moduleKnown: st.available.includes(settings.module),
+      mitm: st.mitm, scripting: st.scripting,
+      total: reqs.length, yt: yt.length, decrypted: decrypted.length, scripted: scripted.length,
+      video: video.length, init: init.length, initLocal: initLocal.length,
+      notes: notes.slice(0, 10),
+      samples: yt.slice(0, 5).map((r) => `${shortUrl(r.URL)} · ${r.rule || '?'} · ${r.policyName || '?'}${r.failed ? ' · FEHLER' : ''}`),
+    };
+  }
+  function verdict(a) {
+    if (!a.moduleKnown) return 'Das Modul ist in Surge nicht installiert (Assistent, Schritt 5).';
+    if (!a.moduleOn) return 'Das Modul ist installiert, aber ausgeschaltet.';
+    if (!a.mitm) return 'Die HTTPS-Entschlüsselung (MitM) ist aus.';
+    if (!a.scripting) return 'Skripte sind in Surge ausgeschaltet.';
+    if (a.yt === 0) return 'Keine YouTube-Anfragen gefunden. Erst YouTube benutzen, dann neu prüfen.';
+    if (a.decrypted === 0) return 'YouTube wird NICHT entschlüsselt. Zertifikat, MitM-Hostnamen oder QUIC prüfen.';
+    if (a.scripted === 0) return 'YouTube wird entschlüsselt, aber das Skript verändert nichts.';
+    return 'Entschlüsselung und Skript laufen.';
+  }
+  function report(a) {
+    const yn = (b) => (b ? 'an ✅' : 'aus ❌');
+    const time = new Date().toLocaleString('de-DE');
+    return [
+      `YouTube-Diagnose · ${time}`,
+      `Ergebnis: ${verdict(a)}`,
+      `Modul „${settings.module}“: ${a.moduleKnown ? yn(a.moduleOn) : 'nicht installiert ❌'}`,
+      `MitM: ${yn(a.mitm)} · Skripte: ${yn(a.scripting)}`,
+      `Letzte Anfragen gesamt: ${a.total}`,
+      `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted}`,
+      `Video-Server: ${a.video} · initplayback: ${a.init} · davon lokal beantwortet: ${a.initLocal}`,
+      a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : 'Hinweise von Surge: keine',
+      a.samples.length ? `Beispiele:\n${a.samples.map((s) => `  - ${s}`).join('\n')}` : '',
+    ].filter(Boolean).join('\n');
+  }
+  let lastReport = '';
+  async function runDiagnosis() {
+    const out = $('diag-out');
+    out.hidden = false;
+    out.textContent = 'Prüfe …';
+    $('btn-diag').disabled = true;
+    try {
+      const [st, recent] = await Promise.all([backend.status(), backend.recentRequests()]);
+      const a = analyse(st, recent);
+      lastReport = report(a);
+      out.textContent = lastReport;
+      $('btn-diag-copy').disabled = false;
+      log(`Diagnose: ${verdict(a)}`, a.scripted > 0 ? 'info' : 'bad');
+    } catch (e) {
+      lastReport = '';
+      out.textContent = `Diagnose nicht möglich: ${errorText(e)}`;
+      $('btn-diag-copy').disabled = true;
+    } finally {
+      $('btn-diag').disabled = false;
     }
   }
 
@@ -536,6 +622,8 @@
       'DNS-Cache geleert', 'Neue Anfragen gehen wieder frisch an NextDNS.'));
 
     $('btn-dns-check').addEventListener('click', () => checkNextDns(false));
+    $('btn-diag').addEventListener('click', runDiagnosis);
+    $('btn-diag-copy').addEventListener('click', () => { if (lastReport) copyText(lastReport); });
     $('btn-setup').addEventListener('click', () => (state.reach === 'auth' ? openSettings() : openSetup()));
 
     $('setup-steps').addEventListener('change', (e) => {

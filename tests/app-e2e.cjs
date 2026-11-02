@@ -50,6 +50,14 @@ function surgeHandler(req, res) {
       return send({ enabled: surge[feature[1]] });
     }
     if (url === '/v1/profiles/reload' || url === '/v1/dns/flush') return send({});
+    if (url === '/v1/requests/recent') {
+      return send({ requests: [
+        { URL: 'youtubei.googleapis.com:443', modified: false, notes: ['[MITM] skipped'], rule: 'FINAL', policyName: 'DIRECT' },
+        { URL: 'https://youtubei.googleapis.com/youtubei/v1/browse?key=geheim', modified: true, notes: ['[Script] youtube.response done'], rule: 'FINAL', policyName: 'DIRECT' },
+        { URL: 'https://rr3---sn-x.googlevideo.com/initplayback?source=youtube&ack=1', modified: true, notes: [], rule: 'FINAL', policyName: 'DIRECT' },
+        { URL: 'https://www.apple.com/', modified: false, notes: [], rule: 'FINAL', policyName: 'DIRECT' },
+      ] });
+    }
     res.writeHead(404, cors);
     res.end('{}');
   });
@@ -131,6 +139,17 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   surgeServer = http.createServer(surgeHandler);
   await listen(surgeServer, 6171, '127.0.0.1');
   ok(await titleIs(page, 'Schutz aktiv'), 'Nach dem Start wieder „Schutz aktiv“');
+
+  // YouTube-Diagnose
+  await page.click('#btn-diag');
+  await page.waitForFunction(() => /Ergebnis:/.test(document.getElementById('diag-out').textContent), null, { timeout: 8000 });
+  const diag = await page.textContent('#diag-out');
+  ok(diag.includes('YouTube-API: 2 · entschlüsselt: 1 · vom Skript verändert: 1'), 'Diagnose zählt YouTube-Anfragen richtig');
+  ok(diag.includes('initplayback: 1 · davon lokal beantwortet: 1'), 'Diagnose erkennt lokal beantwortetes initplayback');
+  ok(diag.includes('Ergebnis: Entschlüsselung und Skript laufen.'), 'Diagnose gibt ein klares Ergebnis');
+  ok(!diag.includes('geheim'), 'Diagnose-Bericht enthält keine Abfrage-Parameter');
+  ok(await page.isEnabled('#btn-diag-copy'), 'Bericht kann kopiert werden');
+  await shot(page, '8-hell-diagnose.png');
 
   // Startmenü
   await page.click('#btn-start');

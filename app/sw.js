@@ -1,6 +1,6 @@
 // Offline-Speicher: Die App öffnet sich auch dann, wenn das Internet gerade nicht geht.
 // Genau dann braucht man den NOTAUS.
-const CACHE = 'werbefrei-v7';
+const CACHE = 'werbefrei-v8';
 const ASSETS = [
   './',
   './index.html',
