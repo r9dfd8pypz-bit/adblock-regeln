@@ -167,6 +167,16 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   const moduleHref = await fresh.page.getAttribute('#s-module-link', 'href');
   ok(decodeURIComponent(moduleHref.split('url=')[1]) === 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/modules/youtube-werbefrei.sgmodule',
     'Modul-Knopf zeigt auf das Repo');
+  await fresh.page.click('.step[data-step="verbinden"] [data-setup="test"]');
+  await fresh.page.waitForSelector('#balloon:not([hidden])');
+  const balloonOnTop = await fresh.page.evaluate(() => {
+    const b = document.getElementById('balloon');
+    const r = b.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + 12);
+    return b.closest('dialog[open]') !== null && b.contains(top);
+  });
+  ok(balloonOnTop, 'Sprechblase liegt bei offenem Assistenten sichtbar oben');
+  await fresh.page.click('#balloon-close');
   await fresh.page.click('.step[data-step="nextdns-konto"] .step-check');
   ok(await fresh.page.textContent('#setup-progress') === '1 von 9 Schritten erledigt', 'Abhaken zählt den Fortschritt');
   await shot(fresh.page, '7-hell-einrichtung.png');

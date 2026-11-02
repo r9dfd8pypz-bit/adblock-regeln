@@ -258,6 +258,9 @@
   let balloonTimer;
   function balloon(title, text, level = 'info') {
     const b = $('balloon');
+    // Ist ein Dialog offen, muss die Sprechblase in den Dialog, sonst liegt sie dahinter.
+    const host = document.querySelector('dialog[open]') || document.body;
+    if (b.parentElement !== host) host.appendChild(b);
     $('balloon-title').textContent = title;
     $('balloon-text').textContent = text;
     b.dataset.level = level;
@@ -579,6 +582,10 @@
     for (const dlg of document.querySelectorAll('dialog')) {
       dlg.addEventListener('click', (e) => {
         if (e.target.closest('[data-close]')) dlg.close();
+      });
+      dlg.addEventListener('close', () => {
+        const b = $('balloon');
+        if (dlg.contains(b)) document.body.appendChild(b);
       });
     }
 
