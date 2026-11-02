@@ -43,6 +43,7 @@ Deine ID kommt absichtlich **nicht** ins öffentliche Repo.
 1. Surge → **Home** → Tab **Capture** → Karte **MitM** → **Configure**.
 2. Gibt es noch kein Zertifikat: **Generate A New CA Certificate** tippen. Das machst du **nur ein einziges Mal**. Ein neu erzeugtes Zertifikat passt nicht mehr zum installierten.
 3. **Install CA Certificate to System** tippen und den Download erlauben.
+   **Nur Safari kann Zertifikate installieren.** Ist Brave dein Standardbrowser, öffnet sich der Download dort und es passiert nichts. Dann stellst du vorübergehend Safari als Standardbrowser ein (Einstellungen → Apps → Standard-Apps → Browser-App). Oder du gehst in Surge auf **Export CA Certificate to .crt File** → **In Dateien sichern** → in der Dateien-App die Datei antippen. Ein geladenes Profil musst du innerhalb von 8 Minuten installieren, sonst löscht iOS es wieder.
 4. In den Einstellungen bei **Profil geladen** auf **Installieren** tippen. Steht dort nichts, findest du es unter Einstellungen → Allgemein → VPN und Geräteverwaltung.
 5. **Wichtig, sonst geht es nicht:** Einstellungen → Allgemein → **Info** → ganz unten **Zertifikatsvertrauenseinstellungen** → das Surge-Zertifikat **mit demselben Code** wie in Surge (z. B. `C51A7E98`) **einschalten**.
 6. Zurück in Surge: Unter dem Zertifikat darf **nicht mehr „Not installed“** stehen. **Skip Server Certificate Verification** ausschalten. Den MitM-Schalter einschalten. Welche Adressen entschlüsselt werden, legt das Modul fest. Trag dort selbst **nichts** dazu ein.
