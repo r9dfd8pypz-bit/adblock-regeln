@@ -27,13 +27,13 @@ Ein kündbares Monatsabo bietet keine dieser Apps an. Plan: Mit der kostenlosen 
 1. **[NextDNS auf dem iPhone](anleitung/1-nextdns-iphone.md)**: kostenlos, etwa 10 Minuten.
 2. **[Surge-Testwoche mit YouTube-Modul](anleitung/2-surge-youtube.md)**: erst starten, wenn du 30 Minuten Zeit hast, denn ab dann laufen die 7 Tage.
 3. **[Fritzbox auf NextDNS](anleitung/3-fritzbox.md)**: optional und erst später. Mit allen Geräten im Haushalt wird es mit 300.000 Anfragen im Monat knapp. Darum nutzt du NextDNS zuerst eine Woche nur am iPhone und schaust dir den Verbrauch an.
-4. **[Werbefrei-Zentrale als App](anleitung/4-steuerzentrale.md)**: Schalter und NOTAUS auf dem Home-Bildschirm, im Luna-Look mit Hell- und Dunkelmodus. Läuft kostenlos über GitHub Pages.
+4. **[Werbefrei-Zentrale als App](anleitung/4-steuerzentrale.md)**: Schalter und „Alles sofort stoppen“ auf dem Home-Bildschirm, schlicht im Stil der iPhone-Einstellungen, hell und dunkel. Läuft kostenlos über GitHub Pages.
 
 ## Die App
 
 Die **Werbefrei-Zentrale** (`app/`) bündelt alles Wichtige auf einem Bildschirm:
 
-- **Hauptschalter** und **NOTAUS** für Surge. Das geht immer, auch ohne Einrichtung.
+- **Hauptschalter** und **Alles sofort stoppen** für Surge. Das geht immer, auch ohne Einrichtung.
 - Schalter für das **YouTube-Modul**, die **HTTPS-Entschlüsselung** und die **Skripte**, dazu „Alles pausieren“ und „Alles an“.
 - **NextDNS-Status**, **Profil neu laden**, **DNS-Cache leeren** und ein **Ereignisprotokoll**.
 - Ein **Demo-Modus** zum Ausprobieren ohne Surge.

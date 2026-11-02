@@ -181,7 +181,7 @@
     let showSetup = false;
     if (state.reach === 'setup') {
       title = 'Einrichtung nötig';
-      text = 'Einmal die Verbindung zu Surge einrichten. Der NOTAUS funktioniert auch ohne.';
+      text = 'Einmal die Verbindung zu Surge einrichten. „Alles sofort stoppen“ funktioniert auch ohne.';
       showSetup = true;
     } else if (state.reach === 'auth') {
       level = 'bad';
@@ -221,7 +221,6 @@
     $('status-title').textContent = title;
     $('status-text').textContent = text;
     $('btn-setup').hidden = !showSetup;
-    $('tray-shield').dataset.level = level;
 
     let host = settings.base;
     try { host = new URL(settings.base).host; } catch { /* Anzeige wie eingegeben */ }
@@ -377,18 +376,11 @@
     if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = t;
     try { localStorage.setItem('wf.theme', t); } catch { /* egal */ }
     const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelector('meta[name="theme-color"]').content = dark ? '#142c6c' : '#245edb';
-    $('sb-theme').textContent = `Design: ${THEME_NAMES[t]}`;
+    document.querySelector('meta[name="theme-color"]').content = dark ? '#000000' : '#f2f2f7';
+    for (const b of document.querySelectorAll('[data-theme-choice]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.themeChoice === t));
+    }
     if (announce) balloon(`Design: ${THEME_NAMES[t]}`, t === 'auto' ? 'Folgt dem Hell-/Dunkelmodus des iPhones.' : 'Bleibt so, bis du es änderst.');
-  }
-
-  // ---------- Startmenü ----------
-  function toggleMenu(open) {
-    const menu = $('start-menu');
-    const willOpen = open === undefined ? menu.hidden : open;
-    menu.hidden = !willOpen;
-    $('btn-start').setAttribute('aria-expanded', String(willOpen));
-    if (willOpen) menu.querySelector('.sm-item').focus({ preventScroll: true });
   }
 
   // ---------- Einstellungen ----------
@@ -428,7 +420,6 @@
     return '';
   }
   function openSettings() {
-    toggleMenu(false);
     $('f-base').value = settings.base;
     $('f-key').value = settings.key || generateKey();
     $('f-module').value = settings.module;
@@ -551,7 +542,6 @@
     $('s-lines').textContent = setupLines();
   }
   function openSetup() {
-    toggleMenu(false);
     ensureKey();
     $('s-nextdns').value = settings.nextdnsId;
     renderSetup();
@@ -653,29 +643,20 @@
       else if (what === 'probe') probeInBrowser(settings);
     });
     $('btn-help').addEventListener('click', () => $('dlg-help').showModal());
-    $('btn-theme').addEventListener('click', () => {
-      const next = THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length];
-      applyTheme(next, true);
-    });
-
-    $('btn-start').addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
-    $('start-menu').addEventListener('click', (e) => {
+    // Zeilen mit data-action öffnen Blätter
+    document.addEventListener('click', (e) => {
       const item = e.target.closest('[data-action]');
       if (!item) return;
       const action = item.dataset.action;
-      toggleMenu(false);
       if (action === 'setup') openSetup();
       else if (action === 'settings') openSettings();
       else if (action === 'help') $('dlg-help').showModal();
-      else if (action === 'notaus') openSurge('stop');
-      else if (action.startsWith('theme-')) applyTheme(action.slice(6), true);
+      else if (action === 'log') { renderLog(); $('dlg-log').showModal(); }
+      else if (action === 'diag') { $('dlg-diag').showModal(); runDiagnosis(); }
     });
-    document.addEventListener('click', (e) => {
-      if (!$('start-menu').hidden && !e.target.closest('#start-menu')) toggleMenu(false);
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$('start-menu').hidden) { toggleMenu(false); $('btn-start').focus(); }
-    });
+    for (const b of document.querySelectorAll('[data-theme-choice]')) {
+      b.addEventListener('click', () => applyTheme(b.dataset.themeChoice, true));
+    }
 
     for (const dlg of document.querySelectorAll('dialog')) {
       dlg.addEventListener('click', (e) => {
@@ -722,16 +703,10 @@
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(currentTheme(), false));
   }
 
-  function tickClock() {
-    $('clock').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  }
-
   // ---------- Start ----------
   wire();
   applyTheme(currentTheme(), false);
   renderLog();
-  tickClock();
-  setInterval(tickClock, 15000);
   refresh();
   setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, POLL_MS);
 

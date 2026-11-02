@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Werbefrei-Zentrale</title>
+<title>Werbefrei</title>
 <meta name="description" content="Schalter für den Werbeblocker auf dem iPhone: Surge, YouTube-Filter und NextDNS.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Werbefrei">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#245edb">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -21,295 +21,322 @@
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <linearGradient id="g-shield" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" class="stop-1"/><stop offset="1" class="stop-2"/>
-    </linearGradient>
-  </defs>
-  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 20 5c0 6-2 11-8 16C6 16 4 11 4 5Z" fill="url(#g-shield)" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9.5 8v8M14.5 8v8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></symbol>
-  <symbol id="i-cross" viewBox="0 0 24 24"><path d="m8.5 8.5 7 7m0-7-7 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></symbol>
-  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="8" cy="12" r="1.6" fill="#fff"/><circle cx="12" cy="12" r="1.6" fill="#fff"/><circle cx="16" cy="12" r="1.6" fill="#fff"/></symbol>
-  <symbol id="i-help" viewBox="0 0 24 24"><path d="M9.2 9.3a2.9 2.9 0 1 1 4.3 2.5c-.9.5-1.5 1.1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.3" fill="currentColor"/></symbol>
-  <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 5a7 7 0 0 1 0 14Z" fill="currentColor"/></symbol>
-  <symbol id="i-close" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
-  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M7.4 6.6a7.5 7.5 0 1 0 9.2 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
-  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-  <symbol id="i-check-list" viewBox="0 0 24 24"><path d="m4 6.5 1.6 1.6L8.5 5M4 12.5l1.6 1.6 2.9-3.1M4 18.5l1.6 1.6 2.9-3.1M11.5 7h8.5M11.5 13h8.5M11.5 19h8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5ZM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5.7 1.5 1.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5 19.5 5.3v5.9c0 4.7-3.1 8.6-7.5 10.3-4.4-1.7-7.5-5.6-7.5-10.3V5.3Z" fill="currentColor"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m8 12.3 2.8 2.8L16.2 9.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M10 9v6M14 9v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 24 24"><path d="m9.4 9.4 5.2 5.2m0-5.2-5.2 5.2" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="8.6" cy="12" r="1.3" fill="#fff"/><circle cx="12" cy="12" r="1.3" fill="#fff"/><circle cx="15.4" cy="12" r="1.3" fill="#fff"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7.4 6.6a7.5 7.5 0 1 0 9.2 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5Z" fill="currentColor"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="6" y="10.5" width="12" height="9" rx="2.2" fill="currentColor"/><path d="M8.8 10.5V8.2a3.2 3.2 0 0 1 6.4 0v2.3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m9 8-4 4 4 4M15 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 12h15M12 4.5c2.2 2.1 3.2 4.6 3.2 7.5s-1 5.4-3.2 7.5c-2.2-2.1-3.2-4.6-3.2-7.5s1-5.4 3.2-7.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15 15 4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M18.5 12a6.5 6.5 0 1 1-1.9-4.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M17.5 4v4h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5.5 7.5h13M9.5 7.5V5.5h5v2M7.5 7.5l.8 11h7.4l.8-11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v4.3l2.8 1.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m4.5 7 1.4 1.4L8.5 5.8M4.5 13l1.4 1.4 2.6-2.6M4.5 19l1.4 1.4 2.6-2.6M11.5 7.2h8M11.5 13.2h8M11.5 19.2h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5v2.6M12 17.9v2.6M3.5 12h2.6M17.9 12h2.6M6 6l1.8 1.8M16.2 16.2 18 18M6 18l1.8-1.8M16.2 7.8 18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><path d="M9.3 9.3a2.8 2.8 0 1 1 4.1 2.5c-.9.5-1.4 1.1-1.4 2.1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.25" fill="currentColor"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4.5 6c0-.8.7-1.5 1.5-1.5h5V19H6c-.8 0-1.5.6-1.5 1.4ZM19.5 6c0-.8-.7-1.5-1.5-1.5h-5V19h5c.8 0 1.5.6 1.5 1.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M8 16 16.5 7.5M10 7.5h6.5V14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
-<div class="desktop">
-  <main class="window" aria-labelledby="win-title">
-    <header class="titlebar">
-      <svg class="titlebar-icon" aria-hidden="true"><use href="#i-shield"/></svg>
-      <h1 id="win-title">Werbefrei-Zentrale</h1>
-      <div class="titlebar-buttons">
-        <button type="button" class="tb-btn" id="btn-theme" aria-label="Design wechseln (Automatisch, Hell, Dunkel)"><svg><use href="#i-theme"/></svg></button>
-        <button type="button" class="tb-btn" id="btn-help" aria-label="Hilfe und Notfall"><svg><use href="#i-help"/></svg></button>
-      </div>
-    </header>
+<main class="page">
+  <header class="large-title">
+    <h1>Werbefrei</h1>
+    <button type="button" class="circle-btn" id="btn-help" aria-label="Hilfe und Notfall"><svg aria-hidden="true"><use href="#i-help"/></svg></button>
+  </header>
 
-    <div class="window-body">
-      <section class="status-card" id="status-card" data-level="idle" aria-live="polite">
-        <div class="status-badge" aria-hidden="true">
-          <svg class="status-shield"><use href="#i-shield"/></svg>
-          <svg class="status-mark" id="status-mark"><use href="#i-dots"/></svg>
-        </div>
-        <div class="status-copy">
-          <p class="status-title" id="status-title">Verbinde …</p>
-          <p class="status-text" id="status-text"></p>
-          <button type="button" class="btn btn-small" id="btn-setup" hidden>Jetzt einrichten</button>
-        </div>
-      </section>
-
-      <fieldset class="group">
-        <legend>Hauptschalter</legend>
-        <div class="row">
-          <label class="row-text" for="sw-surge"><strong>Surge</strong><span>Lokales VPN auf diesem iPhone</span></label>
-          <button type="button" class="switch" role="switch" aria-checked="false" id="sw-surge"><span class="knob"></span></button>
-        </div>
-        <button type="button" class="btn btn-danger btn-block" id="btn-notaus">
-          <svg aria-hidden="true"><use href="#i-power"/></svg>
-          <span>NOTAUS: Surge sofort stoppen</span>
-        </button>
-        <p class="hint">Stoppt Surge komplett. Danach läuft dein iPhone wieder ganz normal, ohne Filter.</p>
-      </fieldset>
-
-      <fieldset class="group">
-        <legend>Filter</legend>
-        <div class="row">
-          <label class="row-text" for="sw-module"><strong>YouTube werbefrei</strong><span id="module-sub">Werbung in der YouTube-App entfernen</span></label>
-          <button type="button" class="switch" role="switch" aria-checked="false" id="sw-module"><span class="knob"></span></button>
-        </div>
-        <div class="row">
-          <label class="row-text" for="sw-mitm"><strong>HTTPS-Entschlüsselung</strong><span>Nur für die zwei YouTube-Adressen</span></label>
-          <button type="button" class="switch" role="switch" aria-checked="false" id="sw-mitm"><span class="knob"></span></button>
-        </div>
-        <div class="row">
-          <label class="row-text" for="sw-scripting"><strong>Skripte</strong><span>Löschen die Werbung aus den Antworten</span></label>
-          <button type="button" class="switch" role="switch" aria-checked="false" id="sw-scripting"><span class="knob"></span></button>
-        </div>
-        <div class="btn-row">
-          <button type="button" class="btn" id="btn-pause">Alles pausieren</button>
-          <button type="button" class="btn" id="btn-resume">Alles an</button>
-        </div>
-      </fieldset>
-
-      <fieldset class="group">
-        <legend>YouTube-Diagnose</legend>
-        <p class="hint">Erst ein paar Sekunden YouTube benutzen (Startseite, ein Video), dann hier prüfen. Den Bericht kannst du kopieren und mir schicken.</p>
-        <div class="btn-row">
-          <button type="button" class="btn" id="btn-diag">Diagnose starten</button>
-          <button type="button" class="btn" id="btn-diag-copy" disabled>Bericht kopieren</button>
-        </div>
-        <pre class="code diag" id="diag-out" hidden></pre>
-      </fieldset>
-
-      <fieldset class="group">
-        <legend>NextDNS</legend>
-        <div class="row">
-          <div class="row-text"><strong id="dns-title">Noch nicht geprüft</strong><span id="dns-text">Sperrt Werbe-Domains in allen Apps</span></div>
-          <span class="led" id="dns-led" data-level="idle" aria-hidden="true"></span>
-        </div>
-        <div class="btn-row">
-          <button type="button" class="btn" id="btn-dns-check">Prüfen</button>
-          <a class="btn" id="link-dns" href="https://my.nextdns.io" target="_blank" rel="noopener">Logs öffnen</a>
-          <a class="btn" href="https://test.nextdns.io" target="_blank" rel="noopener">Testseite</a>
-        </div>
-      </fieldset>
-
-      <fieldset class="group">
-        <legend>Werkzeuge</legend>
-        <div class="btn-row">
-          <button type="button" class="btn" id="btn-reload">Profil neu laden</button>
-          <button type="button" class="btn" id="btn-flush">DNS-Cache leeren</button>
-        </div>
-        <p class="hint">„Profil neu laden“ holt auch neue Regeln aus deinem Repo.</p>
-      </fieldset>
-
-      <fieldset class="group">
-        <legend>Ereignisprotokoll</legend>
-        <ol class="log" id="log"></ol>
-      </fieldset>
+  <section class="hero" id="status-card" data-level="idle" aria-live="polite">
+    <div class="hero-badge" aria-hidden="true">
+      <svg class="hero-shield"><use href="#i-shield"/></svg>
+      <svg class="hero-mark" id="status-mark"><use href="#i-dots"/></svg>
     </div>
+    <div class="hero-copy">
+      <h2 id="status-title">Verbinde …</h2>
+      <p id="status-text"></p>
+    </div>
+    <button type="button" class="pill pill-filled" id="btn-setup" hidden>Jetzt einrichten</button>
+  </section>
 
-    <footer class="statusbar">
-      <span id="sb-conn">Nicht verbunden</span>
-      <span id="sb-theme"></span>
-    </footer>
-  </main>
-</div>
+  <section class="section">
+    <h3 class="section-header">Schutz</h3>
+    <ul class="list">
+      <li class="row">
+        <span class="tile" style="--tile: var(--green)"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>
+        <label class="row-text" for="sw-surge"><strong>Surge</strong><small>Lokales VPN auf diesem iPhone</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-surge" aria-label="Surge"></button>
+      </li>
+    </ul>
+    <ul class="list list-gap">
+      <li><button type="button" class="row-action destructive" id="btn-notaus">Alles sofort stoppen</button></li>
+    </ul>
+    <p class="section-footer">Stoppt Surge komplett. Dein iPhone läuft dann ganz normal, ohne Filter.</p>
+  </section>
 
-<nav class="taskbar" aria-label="Taskleiste">
-  <button type="button" class="start-btn" id="btn-start" aria-haspopup="true" aria-expanded="false" aria-controls="start-menu">
-    <svg aria-hidden="true"><use href="#i-shield"/></svg><span>Menü</span>
-  </button>
-  <div class="task-items"><span class="task-item">Werbefrei-Zentrale</span></div>
-  <div class="tray">
-    <svg class="tray-shield" id="tray-shield" data-level="idle" aria-hidden="true"><use href="#i-shield"/></svg>
-    <time id="clock"></time>
-  </div>
-</nav>
+  <section class="section">
+    <h3 class="section-header">YouTube</h3>
+    <ul class="list">
+      <li class="row">
+        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-play"/></svg></span>
+        <label class="row-text" for="sw-module"><strong>Werbefilter</strong><small id="module-sub">Werbung in der YouTube-App entfernen</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-module" aria-label="Werbefilter"></button>
+      </li>
+      <li class="row">
+        <span class="tile" style="--tile: var(--blue)"><svg aria-hidden="true"><use href="#i-lock"/></svg></span>
+        <label class="row-text" for="sw-mitm"><strong>HTTPS-Entschlüsselung</strong><small>Nur für die YouTube-Adressen</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-mitm" aria-label="HTTPS-Entschlüsselung"></button>
+      </li>
+      <li class="row">
+        <span class="tile" style="--tile: var(--purple)"><svg aria-hidden="true"><use href="#i-code"/></svg></span>
+        <label class="row-text" for="sw-scripting"><strong>Skripte</strong><small>Löschen die Werbung aus den Antworten</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-scripting" aria-label="Skripte"></button>
+      </li>
+      <li class="row row-split">
+        <button type="button" class="split-btn" id="btn-pause">Pausieren</button>
+        <button type="button" class="split-btn" id="btn-resume">Alles an</button>
+      </li>
+    </ul>
+    <p class="section-footer">Nach dem Einschalten die YouTube-App einmal ganz schließen und neu öffnen.</p>
+  </section>
 
-<div class="start-menu" id="start-menu" hidden>
-  <div class="sm-header">
-    <span class="sm-avatar"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>
-    <strong>Werbefrei</strong>
-  </div>
-  <div class="sm-body">
-    <button type="button" class="sm-item" data-action="setup"><svg aria-hidden="true"><use href="#i-check-list"/></svg><span><strong>Einrichtung Schritt für Schritt</strong><small>Alles mit einem Tipp pro Schritt</small></span></button>
-    <button type="button" class="sm-item" data-action="settings"><svg aria-hidden="true"><use href="#i-gear"/></svg><span><strong>Verbindung &amp; Einstellungen</strong><small>Surge-Schnittstelle, NextDNS-ID, Demo</small></span></button>
-    <button type="button" class="sm-item" data-action="theme-auto"><svg aria-hidden="true"><use href="#i-theme"/></svg><span><strong>Design: Automatisch</strong><small>Folgt dem iPhone</small></span></button>
-    <button type="button" class="sm-item" data-action="theme-light"><svg aria-hidden="true"><use href="#i-theme"/></svg><span><strong>Design: Hell</strong></span></button>
-    <button type="button" class="sm-item" data-action="theme-dark"><svg aria-hidden="true"><use href="#i-theme"/></svg><span><strong>Design: Dunkel</strong></span></button>
-    <button type="button" class="sm-item" data-action="help"><svg aria-hidden="true"><use href="#i-help"/></svg><span><strong>Hilfe &amp; Notfall</strong></span></button>
-    <a class="sm-item" href="https://github.com/r9dfd8pypz-bit/adblock-regeln#readme" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-book"/></svg><span><strong>Anleitung öffnen</strong><small>Auf GitHub</small></span></a>
-  </div>
-  <div class="sm-footer">
-    <button type="button" class="sm-off" data-action="notaus"><svg aria-hidden="true"><use href="#i-power"/></svg>Surge stoppen</button>
-  </div>
-</div>
+  <section class="section">
+    <h3 class="section-header">NextDNS</h3>
+    <ul class="list">
+      <li class="row">
+        <span class="tile" style="--tile: var(--teal)"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>
+        <div class="row-text"><strong id="dns-title">Noch nicht geprüft</strong><small id="dns-text">Sperrt Werbe-Domains in allen Apps</small></div>
+        <span class="dot" id="dns-led" data-level="idle" aria-hidden="true"></span>
+        <button type="button" class="pill" id="btn-dns-check">Prüfen</button>
+      </li>
+      <li><a class="row row-link" id="link-dns" href="https://my.nextdns.io" target="_blank" rel="noopener"><span class="row-text"><strong>Logs öffnen</strong></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
+      <li><a class="row row-link" href="https://test.nextdns.io" target="_blank" rel="noopener"><span class="row-text"><strong>Testseite</strong></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
+    </ul>
+  </section>
 
-<dialog class="window dialog" id="dlg-settings" aria-labelledby="dlg-settings-title">
+  <section class="section">
+    <h3 class="section-header">Werkzeuge</h3>
+    <ul class="list">
+      <li><button type="button" class="row row-link" data-action="diag">
+        <span class="tile" style="--tile: var(--indigo)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
+        <span class="row-text"><strong>YouTube-Diagnose</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><button type="button" class="row row-link" id="btn-reload">
+        <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span>
+        <span class="row-text"><strong>Profil neu laden</strong><small>Holt auch neue Regeln aus deinem Repo</small></span></button></li>
+      <li><button type="button" class="row row-link" id="btn-flush">
+        <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-trash"/></svg></span>
+        <span class="row-text"><strong>DNS-Cache leeren</strong></span></button></li>
+      <li><button type="button" class="row row-link" data-action="log">
+        <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-clock"/></svg></span>
+        <span class="row-text"><strong>Verlauf</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3 class="section-header">Mehr</h3>
+    <ul class="list">
+      <li><button type="button" class="row row-link" data-action="setup">
+        <span class="tile" style="--tile: var(--green)"><svg aria-hidden="true"><use href="#i-list"/></svg></span>
+        <span class="row-text"><strong>Einrichtung</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><button type="button" class="row row-link" data-action="settings">
+        <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-gear"/></svg></span>
+        <span class="row-text"><strong>Verbindung &amp; Design</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><button type="button" class="row row-link" data-action="help">
+        <span class="tile" style="--tile: var(--orange)"><svg aria-hidden="true"><use href="#i-help"/></svg></span>
+        <span class="row-text"><strong>Hilfe &amp; Notfall</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><a class="row row-link" href="https://github.com/r9dfd8pypz-bit/adblock-regeln#readme" target="_blank" rel="noopener">
+        <span class="tile" style="--tile: var(--blue)"><svg aria-hidden="true"><use href="#i-book"/></svg></span>
+        <span class="row-text"><strong>Anleitung</strong></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
+    </ul>
+    <p class="section-footer center" id="sb-conn">Nicht verbunden</p>
+  </section>
+</main>
+
+<!-- Diagnose -->
+<dialog class="sheet" id="dlg-diag" aria-labelledby="dlg-diag-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-diag-title">YouTube-Diagnose</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
+  </header>
+  <div class="sheet-body">
+    <p class="section-footer">Erst ein paar Sekunden YouTube benutzen (Startseite, ein Video), dann prüfen. Den Bericht kannst du kopieren und mir schicken.</p>
+    <div class="pill-row">
+      <button type="button" class="pill" id="btn-diag">Erneut prüfen</button>
+      <button type="button" class="pill" id="btn-diag-copy" disabled>Bericht kopieren</button>
+    </div>
+    <pre class="code diag" id="diag-out" hidden></pre>
+  </div>
+</dialog>
+
+<!-- Verlauf -->
+<dialog class="sheet" id="dlg-log" aria-labelledby="dlg-log-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-log-title">Verlauf</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
+  </header>
+  <div class="sheet-body">
+    <ol class="list log" id="log"></ol>
+  </div>
+</dialog>
+
+<!-- Einstellungen -->
+<dialog class="sheet" id="dlg-settings" aria-labelledby="dlg-settings-title">
   <form method="dialog" id="form-settings">
-    <header class="titlebar">
-      <svg class="titlebar-icon" aria-hidden="true"><use href="#i-gear"/></svg>
-      <h2 id="dlg-settings-title">Verbindung &amp; Einstellungen</h2>
-      <div class="titlebar-buttons"><button type="button" class="tb-btn tb-close" data-close aria-label="Schließen"><svg><use href="#i-close"/></svg></button></div>
+    <header class="sheet-header">
+      <button type="button" class="nav-btn" data-close>Abbrechen</button>
+      <h2 class="sheet-title" id="dlg-settings-title">Verbindung &amp; Design</h2>
+      <button type="submit" class="nav-btn bold" id="btn-save" value="save">Sichern</button>
     </header>
-    <div class="window-body">
-      <fieldset class="group">
-        <legend>Surge-Schnittstelle</legend>
-        <label class="field"><span>Adresse</span><input id="f-base" type="url" inputmode="url" autocomplete="off" spellcheck="false"></label>
-        <label class="field"><span>Schlüssel</span>
-          <span class="field-inline"><input id="f-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn-small" id="btn-genkey">Neu</button></span>
-        </label>
-        <p class="hint">Diese zwei Zeilen kommen ins Surge-Profil unter <code>[General]</code>:</p>
-        <pre class="code" id="f-lines"></pre>
-        <div class="btn-row">
-          <button type="button" class="btn btn-small" id="btn-copy">Zeilen kopieren</button>
-          <button type="button" class="btn btn-small" id="btn-test">Verbindung testen</button>
-          <button type="button" class="btn btn-small" id="btn-probe">Im Browser prüfen</button>
-          <button type="button" class="btn btn-small" id="btn-cert">Zertifikat laden</button>
-        </div>
-      </fieldset>
-      <fieldset class="group">
-        <legend>Weiteres</legend>
-        <label class="field"><span>Name des Moduls in Surge</span><input id="f-module" type="text" autocomplete="off" spellcheck="false"></label>
-        <label class="field"><span>NextDNS-ID (optional, für den Logs-Knopf)</span><input id="f-nextdns" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="z. B. abc123"></label>
-        <label class="check"><input id="f-demo" type="checkbox"><span class="check-box" aria-hidden="true"></span><span>Demo-Modus: ohne Surge ausprobieren</span></label>
-      </fieldset>
-      <div class="btn-row btn-row-end">
-        <button type="button" class="btn" data-close>Abbrechen</button>
-        <button type="submit" class="btn btn-primary" id="btn-save" value="save">Speichern</button>
+    <div class="sheet-body">
+      <h3 class="section-header">Design</h3>
+      <div class="segmented" role="group" aria-label="Design">
+        <button type="button" data-theme-choice="auto">Automatisch</button>
+        <button type="button" data-theme-choice="light">Hell</button>
+        <button type="button" data-theme-choice="dark">Dunkel</button>
       </div>
+
+      <h3 class="section-header">Surge-Schnittstelle</h3>
+      <ul class="list">
+        <li class="field"><label for="f-base">Adresse</label><input id="f-base" type="url" inputmode="url" autocomplete="off" spellcheck="false"></li>
+        <li class="field"><label for="f-key">Schlüssel</label>
+          <span class="field-inline"><input id="f-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off"><button type="button" class="pill" id="btn-genkey">Neu</button></span>
+        </li>
+      </ul>
+      <p class="section-footer">Diese Zeilen kommen ins Surge-Profil unter <code>[General]</code>:</p>
+      <pre class="code" id="f-lines"></pre>
+      <div class="pill-row">
+        <button type="button" class="pill" id="btn-copy">Zeilen kopieren</button>
+        <button type="button" class="pill" id="btn-test">Verbindung testen</button>
+        <button type="button" class="pill" id="btn-probe">Im Browser prüfen</button>
+        <button type="button" class="pill" id="btn-cert">Zertifikat laden</button>
+      </div>
+
+      <h3 class="section-header">Weiteres</h3>
+      <ul class="list">
+        <li class="field"><label for="f-module">Name des Moduls in Surge</label><input id="f-module" type="text" autocomplete="off" spellcheck="false"></li>
+        <li class="field"><label for="f-nextdns">NextDNS-ID</label><input id="f-nextdns" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="z. B. abc123"></li>
+        <li class="row">
+          <label class="row-text" for="f-demo"><strong>Demo-Modus</strong><small>Ohne Surge ausprobieren</small></label>
+          <input id="f-demo" type="checkbox" class="toggle">
+        </li>
+      </ul>
     </div>
   </form>
 </dialog>
 
-<dialog class="window dialog" id="dlg-help" aria-labelledby="dlg-help-title">
-  <header class="titlebar">
-    <svg class="titlebar-icon" aria-hidden="true"><use href="#i-help"/></svg>
-    <h2 id="dlg-help-title">Hilfe &amp; Notfall</h2>
-    <div class="titlebar-buttons"><button type="button" class="tb-btn tb-close" data-close aria-label="Schließen"><svg><use href="#i-close"/></svg></button></div>
+<!-- Hilfe -->
+<dialog class="sheet" id="dlg-help" aria-labelledby="dlg-help-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-help-title">Hilfe &amp; Notfall</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
   </header>
-  <div class="window-body help">
-    <fieldset class="group">
-      <legend>Wenn das iPhone komisch reagiert</legend>
-      <ol>
-        <li><strong>NOTAUS</strong> drücken. Surge stoppt sofort und alles läuft wieder normal.</li>
-        <li>Reagiert diese App nicht: iPhone-<strong>Einstellungen</strong> öffnen und ganz oben den Schalter <strong>VPN</strong> ausschalten.</li>
-        <li>Laden dann immer noch keine Seiten: Einstellungen → Allgemein → VPN und Geräteverwaltung → <strong>DNS</strong> → auf „Automatisch“ stellen. Damit ist NextDNS aus.</li>
-      </ol>
-    </fieldset>
-    <fieldset class="group">
-      <legend>Was die Schalter machen</legend>
-      <dl>
-        <dt>Surge</dt><dd>Startet oder stoppt das lokale VPN. Läuft Surge nicht, wird nichts entschlüsselt und nichts umgeschrieben.</dd>
-        <dt>YouTube werbefrei</dt><dd>Das Modul aus deinem Repo. Aus = YouTube läuft wieder ganz normal, mit Werbung.</dd>
-        <dt>HTTPS-Entschlüsselung</dt><dd>Nötig, damit die Skripte die YouTube-Antworten lesen können. Betrifft nur YouTube.</dd>
-        <dt>Skripte</dt><dd>Löschen die Werbung aus den Antworten.</dd>
-        <dt>Alles pausieren</dt><dd>Surge bleibt an, filtert aber nichts. Gut zum Testen, ob ein Problem vom Filter kommt.</dd>
-      </dl>
-    </fieldset>
-    <p class="hint">Diese App speichert ihre Einstellungen nur auf diesem iPhone. Der Schlüssel verlässt das Gerät nie, und die Schnittstelle ist nur auf dem iPhone selbst erreichbar (127.0.0.1).</p>
-    <div class="btn-row btn-row-end"><button type="button" class="btn btn-primary" data-close>OK</button></div>
+  <div class="sheet-body help">
+    <h3 class="section-header">Wenn das iPhone komisch reagiert</h3>
+    <ol class="list text-list">
+      <li><strong>Alles sofort stoppen</strong> tippen. Surge stoppt, alles läuft wieder normal.</li>
+      <li>Reagiert diese App nicht: iPhone-<strong>Einstellungen</strong> öffnen und ganz oben <strong>VPN</strong> ausschalten.</li>
+      <li>Laden dann immer noch keine Seiten: Einstellungen → Allgemein → VPN und Geräteverwaltung → <strong>DNS</strong> → „Automatisch“. Damit ist NextDNS aus.</li>
+    </ol>
+    <h3 class="section-header">Was die Schalter machen</h3>
+    <dl class="list text-list">
+      <div><dt>Surge</dt><dd>Startet oder stoppt das lokale VPN. Ohne Surge wird nichts entschlüsselt und nichts umgeschrieben.</dd></div>
+      <div><dt>Werbefilter</dt><dd>Das YouTube-Modul aus deinem Repo. Aus = YouTube läuft normal, mit Werbung.</dd></div>
+      <div><dt>HTTPS-Entschlüsselung</dt><dd>Nötig, damit die Skripte die YouTube-Antworten lesen können. Betrifft nur YouTube.</dd></div>
+      <div><dt>Skripte</dt><dd>Löschen die Werbung aus den Antworten.</dd></div>
+      <div><dt>Pausieren</dt><dd>Surge bleibt an, filtert aber nichts. Gut zum Testen, ob ein Problem vom Filter kommt.</dd></div>
+    </dl>
+    <p class="section-footer">Die App speichert ihre Einstellungen nur auf diesem iPhone. Der Schlüssel verlässt das Gerät nie, die Schnittstelle ist nur auf dem iPhone selbst erreichbar (127.0.0.1).</p>
   </div>
 </dialog>
 
-<dialog class="window dialog" id="dlg-setup" aria-labelledby="dlg-setup-title">
-  <header class="titlebar">
-    <svg class="titlebar-icon" aria-hidden="true"><use href="#i-shield"/></svg>
-    <h2 id="dlg-setup-title">Einrichtung Schritt für Schritt</h2>
-    <div class="titlebar-buttons"><button type="button" class="tb-btn tb-close" data-close aria-label="Schließen"><svg><use href="#i-close"/></svg></button></div>
+<!-- Einrichtung -->
+<dialog class="sheet" id="dlg-setup" aria-labelledby="dlg-setup-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-setup-title">Einrichtung</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
   </header>
-  <div class="window-body">
-    <div class="progress-wrap">
-      <div class="progress" aria-hidden="true"><div class="progress-bar" id="setup-bar"></div></div>
-      <p class="hint" id="setup-progress" aria-live="polite"></p>
-    </div>
-    <p class="hint">Der Reihe nach die Knöpfe antippen und danach den Schritt abhaken. Die App merkt sich, wie weit du bist.</p>
+  <div class="sheet-body">
+    <div class="progress" aria-hidden="true"><div class="progress-bar" id="setup-bar"></div></div>
+    <p class="section-footer" id="setup-progress" aria-live="polite"></p>
     <ol class="steps" id="setup-steps">
       <li class="step" data-step="nextdns-konto">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">NextDNS-Konto anlegen</span></label>
-        <p>Kostenlos registrieren. Danach steht im Tab „Setup“ deine ID (6 Zeichen). Trag sie hier ein:</p>
-        <label class="field"><span>Deine NextDNS-ID</span><input id="s-nextdns" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="z. B. abc123"></label>
-        <div class="btn-row"><a class="btn" href="https://my.nextdns.io/signup" target="_blank" rel="noopener">NextDNS öffnen</a></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">NextDNS-Konto anlegen</span></label>
+        <div class="step-body">
+          <p>Kostenlos registrieren. Im Tab „Setup“ steht dann deine ID (6 Zeichen):</p>
+          <input class="inline-input" id="s-nextdns" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Deine NextDNS-ID, z. B. abc123" aria-label="Deine NextDNS-ID">
+          <div class="pill-row"><a class="pill" href="https://my.nextdns.io/signup" target="_blank" rel="noopener">NextDNS öffnen</a></div>
+        </div>
       </li>
       <li class="step" data-step="nextdns-profil">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">NextDNS aufs iPhone</span></label>
-        <p>Dort die ID eintragen, bei „Device Name“ <code>iPhone</code> → Download → <strong>Zulassen</strong>. Dann iPhone-Einstellungen → oben „Profil geladen“ → <strong>Installieren</strong>.</p>
-        <div class="btn-row"><a class="btn" href="https://apple.nextdns.io" target="_blank" rel="noopener">Profil holen</a></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">NextDNS aufs iPhone</span></label>
+        <div class="step-body">
+          <p>ID eintragen, bei „Device Name“ <code>iPhone</code> → Download → <strong>Zulassen</strong>. Dann Einstellungen → „Profil geladen“ → <strong>Installieren</strong>.</p>
+          <div class="pill-row"><a class="pill" href="https://apple.nextdns.io" target="_blank" rel="noopener">Profil holen</a></div>
+        </div>
       </li>
       <li class="step" data-step="nextdns-test">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">NextDNS prüfen</span></label>
-        <p>Grün = alles gut. Wenn es nicht geht, die Testseite öffnen: Dort muss <code>"status": "ok"</code> stehen.</p>
-        <div class="btn-row"><button type="button" class="btn" data-setup="dns-check">Jetzt prüfen</button><a class="btn" href="https://test.nextdns.io" target="_blank" rel="noopener">Testseite</a></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">NextDNS prüfen</span></label>
+        <div class="step-body">
+          <p>Auf der Testseite muss <code>"status": "ok"</code> stehen. Mit iCloud Privat-Relay klappt der Test nur in Brave.</p>
+          <div class="pill-row"><button type="button" class="pill" data-setup="dns-check">Jetzt prüfen</button><a class="pill" href="https://test.nextdns.io" target="_blank" rel="noopener">Testseite</a></div>
+        </div>
       </li>
       <li class="step" data-step="surge-laden">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">Surge laden und Testphase starten</span></label>
-        <p>Surge öffnen, das vorgeschlagene Standardprofil anlegen und die <strong>kostenlose Testphase</strong> starten, ohne etwas zu kaufen. Die 7 Tage laufen ab dann, also erst anfangen, wenn du etwa 30 Minuten Zeit hast.</p>
-        <div class="btn-row"><a class="btn" href="https://apps.apple.com/app/id1442620678" target="_blank" rel="noopener">App Store öffnen</a></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">Surge laden und Test starten</span></label>
+        <div class="step-body">
+          <p>Standardprofil anlegen und die <strong>kostenlose Testphase</strong> starten, ohne etwas zu kaufen. Ab dann laufen 7 Tage.</p>
+          <div class="pill-row"><a class="pill" href="https://apps.apple.com/app/id1442620678" target="_blank" rel="noopener">App Store öffnen</a></div>
+        </div>
       </li>
       <li class="step" data-step="modul">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">YouTube-Modul installieren</span></label>
-        <p>Surge fragt nach: bestätigen und das Modul „YouTube werbefrei“ einschalten.</p>
-        <div class="btn-row"><a class="btn" id="s-module-link" href="surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fr9dfd8pypz-bit%2Fadblock-regeln%2Fmain%2Fmodules%2Fyoutube-werbefrei.sgmodule">In Surge installieren</a></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">YouTube-Modul installieren</span></label>
+        <div class="step-body">
+          <p>Surge fragt nach: bestätigen und das Modul „YouTube werbefrei“ einschalten.</p>
+          <div class="pill-row"><a class="pill" id="s-module-link" href="surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fr9dfd8pypz-bit%2Fadblock-regeln%2Fmain%2Fmodules%2Fyoutube-werbefrei.sgmodule">In Surge installieren</a></div>
+        </div>
       </li>
       <li class="step" data-step="zertifikat">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">Zertifikat einrichten</span></label>
-        <p>In Surge: Home → Tab <strong>Capture</strong> → Karte <strong>MitM</strong> → <strong>Configure</strong>. Gibt es noch kein Zertifikat, einmal „Generate A New CA Certificate“ tippen (später <strong>nie wieder</strong>, sonst passt das installierte nicht mehr). Dann „Install CA Certificate to System“ → Zulassen → iPhone-Einstellungen → „Profil geladen“ → Installieren. Danach Einstellungen → Allgemein → Info → ganz unten „Zertifikatsvertrauenseinstellungen“ → das Surge-Zertifikat <strong>mit demselben Code</strong> einschalten.</p>
-        <p><strong>Nur Safari kann Zertifikate installieren.</strong> Ist Brave dein Standardbrowser, öffnet sich der Download dort und es passiert nichts. Dann vorübergehend Safari als Standardbrowser einstellen oder in Surge „Export CA Certificate to .crt File“ → in Dateien sichern → in der Dateien-App antippen. Ein geladenes Profil innerhalb von 8 Minuten installieren, sonst löscht iOS es wieder.</p>
-        <p><strong>Geschafft</strong>, wenn in Surge unter dem Zertifikat nicht mehr „Not installed“ steht. „Skip Server Certificate Verification“ bitte <strong>ausschalten</strong>.</p>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">Zertifikat einrichten</span></label>
+        <div class="step-body">
+          <p>Surge → Home → <strong>Capture</strong> → MitM → <strong>Configure</strong>. Einmal „Generate A New CA Certificate“ (später <strong>nie wieder</strong>). Dann „Export CA Certificate to .crt File“ → in Dateien sichern → in der Dateien-App antippen → Einstellungen → „Profil geladen“ → Installieren.</p>
+          <p>Danach Einstellungen → Allgemein → Info → „Zertifikatsvertrauenseinstellungen“ → Surge einschalten. Geschafft, wenn in Surge nicht mehr „Not installed“ steht. „Skip Server Certificate Verification“ ausschalten.</p>
+        </div>
       </li>
       <li class="step" data-step="zeilen">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">Drei Zeilen ins Surge-Profil</span></label>
-        <p>Kopieren, in Surge das Profil im <strong>Textmodus</strong> öffnen und unter <code>[General]</code> einfügen. Speichern.</p>
-        <pre class="code" id="s-lines"></pre>
-        <div class="btn-row"><button type="button" class="btn" data-setup="copy">Zeilen kopieren</button></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">Drei Zeilen ins Surge-Profil</span></label>
+        <div class="step-body">
+          <p>Surge → oben auf den Profilnamen → Profil → <strong>Edit in Text Mode</strong> → unter <code>[General]</code> einfügen → sichern.</p>
+          <pre class="code" id="s-lines"></pre>
+          <div class="pill-row"><button type="button" class="pill" data-setup="copy">Zeilen kopieren</button></div>
+        </div>
       </li>
       <li class="step" data-step="verbinden">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">Surge starten und verbinden</span></label>
-        <p>Erst in Surge <strong>STOP</strong> und wieder <strong>START</strong> tippen, damit Surge die neuen Zeilen liest. Dann hier <strong>Verbindung testen</strong>. Steht oben „Schutz aktiv“ mit grünem Schild, hat alles geklappt.</p>
-        <div class="btn-row"><button type="button" class="btn" data-setup="test">Verbindung testen</button><button type="button" class="btn" data-setup="probe">Im Browser prüfen</button></div>
-        <p class="hint">„Im Browser prüfen“ öffnet die Schnittstelle direkt. Text mit <code>{ … }</code> = läuft. „Keine sichere Verbindung“ oder Zertifikatswarnung = das Surge-Zertifikat fehlt oder ist nicht vertraut (Schritt 6). „Server nicht gefunden / kann keine Verbindung herstellen“ = Surge liest die Zeilen nicht.</p>
-        <div class="btn-row"><button type="button" class="btn" data-setup="start">Surge öffnen und starten</button></div>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">Surge neu starten und verbinden</span></label>
+        <div class="step-body">
+          <p>In Surge <strong>STOP</strong> und wieder <strong>START</strong>, dann hier testen. Steht oben „Schutz aktiv“, hat alles geklappt.</p>
+          <div class="pill-row"><button type="button" class="pill" data-setup="test">Verbindung testen</button><button type="button" class="pill" data-setup="probe">Im Browser prüfen</button><button type="button" class="pill" data-setup="start">Surge öffnen</button></div>
+          <p class="hint">„Im Browser prüfen“: Text mit <code>{ … }</code> = läuft. „Keine sichere Verbindung“ = Zertifikat fehlt. „Keine Verbindung“ = Surge liest die Zeilen nicht.</p>
+        </div>
       </li>
       <li class="step" data-step="youtube">
-        <label class="check step-check"><input type="checkbox"><span class="check-box" aria-hidden="true"></span><span class="step-title">YouTube testen</span></label>
-        <p>Die YouTube-App im App-Umschalter ganz wegwischen, neu öffnen und ein paar Videos ansehen. Kommt noch Werbung, sag mir einfach, wo.</p>
+        <label class="step-check"><input type="checkbox"><span class="check-circle" aria-hidden="true"></span><span class="step-title">YouTube testen</span></label>
+        <div class="step-body">
+          <p>YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein paar Videos ansehen. Kommt noch Werbung: Werkzeuge → YouTube-Diagnose.</p>
+        </div>
       </li>
     </ol>
-    <div class="btn-row btn-row-end"><button type="button" class="btn btn-primary" data-close>Fertig</button></div>
   </div>
 </dialog>
 
-<div class="balloon" id="balloon" role="status" hidden>
-  <button type="button" class="balloon-close" id="balloon-close" aria-label="Hinweis schließen"><svg><use href="#i-close"/></svg></button>
-  <strong id="balloon-title"></strong>
-  <p id="balloon-text"></p>
+<div class="toast" id="balloon" role="status" hidden>
+  <div class="toast-text"><strong id="balloon-title"></strong><p id="balloon-text"></p></div>
+  <button type="button" class="toast-close" id="balloon-close" aria-label="Hinweis schließen">×</button>
 </div>
 
 <script src="app.js" defer></script>

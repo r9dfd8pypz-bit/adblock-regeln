@@ -140,8 +140,9 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await listen(surgeServer, 6171, '127.0.0.1');
   ok(await titleIs(page, 'Schutz aktiv'), 'Nach dem Start wieder „Schutz aktiv“');
 
-  // YouTube-Diagnose
-  await page.click('#btn-diag');
+  // YouTube-Diagnose (Zeile öffnet das Blatt und prüft sofort)
+  await page.click('[data-action="diag"]');
+  ok(await page.isVisible('#dlg-diag'), 'Diagnose öffnet sich als eigenes Blatt');
   await page.waitForFunction(() => /Ergebnis:/.test(document.getElementById('diag-out').textContent), null, { timeout: 8000 });
   const diag = await page.textContent('#diag-out');
   ok(diag.includes('YouTube-API: 2 · entschlüsselt: 1 · vom Skript verändert: 1'), 'Diagnose zählt YouTube-Anfragen richtig');
@@ -150,17 +151,21 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(!diag.includes('geheim'), 'Diagnose-Bericht enthält keine Abfrage-Parameter');
   ok(await page.isEnabled('#btn-diag-copy'), 'Bericht kann kopiert werden');
   await shot(page, '8-hell-diagnose.png');
+  await page.click('#dlg-diag [data-close]');
 
-  // Startmenü
-  await page.click('#btn-start');
-  ok(await page.isVisible('#start-menu'), 'Startmenü öffnet sich');
-  await shot(page, '3-hell-menue.png');
-  await page.click('.sm-item[data-action="settings"]');
-  ok(await page.isVisible('#dlg-settings'), 'Einstellungen öffnen sich aus dem Menü');
+  // Verlauf
+  await page.click('[data-action="log"]');
+  ok(await page.isVisible('#dlg-log'), 'Verlauf öffnet sich als eigenes Blatt');
+  ok((await page.textContent('#log')).includes('Diagnose:'), 'Verlauf enthält die letzten Aktionen');
+  await page.click('#dlg-log [data-close]');
+
+  // Einstellungen
+  await page.click('[data-action="settings"]');
+  ok(await page.isVisible('#dlg-settings'), 'Einstellungen öffnen sich');
   const lines = await page.textContent('#f-lines');
   ok(lines === `http-api = ${KEY}@127.0.0.1:6171\nhttp-api-tls = false`, 'Zeilen fürs Surge-Profil stimmen');
   await shot(page, '4-hell-einstellungen.png');
-  await page.click('#dlg-settings [data-close].btn');
+  await page.click('#dlg-settings [data-close]');
   ok(errors.length === 0, `Keine JavaScript-Fehler ${errors.join(' | ')}`);
   await ctx.close();
 
@@ -206,8 +211,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(await fresh.page.textContent('#setup-progress') === '1 von 9 Schritten erledigt', 'Abhaken zählt den Fortschritt');
   await shot(fresh.page, '7-hell-einrichtung.png');
   await fresh.page.reload();
-  await fresh.page.click('#btn-start');
-  await fresh.page.click('.sm-item[data-action="setup"]');
+  await fresh.page.click('[data-action="setup"]');
   ok(await fresh.page.textContent('#setup-progress') === '1 von 9 Schritten erledigt', 'Fortschritt bleibt nach Neustart erhalten');
   ok(await fresh.page.inputValue('#s-nextdns') === 'abc123', 'NextDNS-ID bleibt gespeichert');
   ok(fresh.errors.length === 0, `Keine JavaScript-Fehler (Einrichtung) ${fresh.errors.join(' | ')}`);
@@ -216,15 +220,19 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   // --- Dunkel ---
   const dark = await newPage('dark');
   ok(await titleIs(dark.page, 'Schutz aktiv'), 'Dunkelmodus: verbunden');
-  const bg = await dark.page.evaluate(() => getComputedStyle(document.querySelector('.window')).backgroundColor);
-  ok(bg === 'rgb(35, 39, 46)', `Dunkles Fenster (${bg})`);
+  const bg = await dark.page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  ok(bg === 'rgb(0, 0, 0)', `Dunkler Hintergrund wie iOS (${bg})`);
   await shot(dark.page, '5-dunkel-aktiv.png');
   await dark.page.click('#sw-scripting');
   ok(await titleIs(dark.page, 'Teilweise aktiv'), 'Dunkel: Skripte aus → „Teilweise aktiv“');
   await shot(dark.page, '6-dunkel-teilweise.png');
-  await dark.page.click('#btn-theme'); // auto -> hell
+  await dark.page.click('[data-action="settings"]');
+  await dark.page.click('[data-theme-choice="light"]');
   const themed = await dark.page.evaluate(() => document.documentElement.dataset.theme);
-  ok(themed === 'light', 'Design-Knopf schaltet auf Hell, obwohl das iPhone dunkel ist');
+  ok(themed === 'light', 'Design lässt sich auf Hell stellen, obwohl das iPhone dunkel ist');
+  ok(await dark.page.getAttribute('[data-theme-choice="light"]', 'aria-pressed') === 'true', 'Gewähltes Design ist markiert');
+  await dark.page.click('[data-theme-choice="auto"]');
+  await dark.page.click('#dlg-settings [data-close]');
   const scroll = await dark.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   ok(scroll, 'Kein seitliches Scrollen');
   ok(dark.errors.length === 0, `Keine JavaScript-Fehler (dunkel) ${dark.errors.join(' | ')}`);

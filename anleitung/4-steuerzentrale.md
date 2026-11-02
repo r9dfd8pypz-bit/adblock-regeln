@@ -1,13 +1,13 @@
 # Schritt 4: Die Werbefrei-Zentrale als App aufs iPhone
 
-Eine eigene kleine App im Luna-Look mit Hell- und Dunkelmodus. Damit schaltest du die wichtigsten Dinge mit einem Tipp:
+Eine eigene kleine App, schlicht im Stil der iPhone-Einstellungen. Hell und Dunkel folgen dem iPhone. Damit schaltest du die wichtigsten Dinge mit einem Tipp:
 
-- **Hauptschalter und NOTAUS** für Surge. Das funktioniert **immer**, auch ohne weitere Einrichtung.
+- **Hauptschalter und „Alles sofort stoppen“** für Surge. Das funktioniert **immer**, auch ohne weitere Einrichtung.
 - **YouTube werbefrei**, **HTTPS-Entschlüsselung** und **Skripte** einzeln oder alle zusammen („Alles pausieren“ / „Alles an“).
 - Den **NextDNS-Status** prüfen und die Logs öffnen.
 - **Profil neu laden** (holt neue Regeln aus dem Repo) und **DNS-Cache leeren**.
 
-Die App öffnet sich auch ohne Internet, denn genau dann brauchst du den NOTAUS.
+Die App öffnet sich auch ohne Internet, denn genau dann brauchst du „Alles sofort stoppen“.
 
 ## 1. App veröffentlichen (einmalig)
 
@@ -27,17 +27,17 @@ Die App liegt im Ordner `app/` deines öffentlichen Repos. GitHub Pages stellt s
 2. Auf **Teilen** (Quadrat mit Pfeil) → **Zum Home-Bildschirm** → **Hinzufügen** tippen.
 3. Ab jetzt öffnet das Symbol mit dem grünen Schild die App ohne Adressleiste, wie eine normale App.
 
-Zum Ausprobieren ohne Surge: **Menü → Verbindung & Einstellungen → Demo-Modus**.
+Zum Ausprobieren ohne Surge: **Mehr → Verbindung & Design → Demo-Modus**.
 
 ## Am einfachsten: der Einrichtungs-Assistent
 
-**Menü → Einrichtung Schritt für Schritt** (oder „Jetzt einrichten“ auf der Startseite). Dort gibt es für jeden Schritt einen Knopf: NextDNS-Konto, NextDNS-Profil, Surge im App Store, **YouTube-Modul mit einem Tipp in Surge installieren**, und die **drei fertigen Zeilen fürs Surge-Profil** (NextDNS und Schnittstelle in einem Rutsch). Erledigte Schritte hakst du ab, ein grüner Balken zeigt den Fortschritt. Die folgenden Abschnitte beschreiben dieselben Schritte ausführlich.
+**Mehr → Einrichtung** (oder „Jetzt einrichten“ auf der Startseite). Dort gibt es für jeden Schritt einen Knopf: NextDNS-Konto, NextDNS-Profil, Surge im App Store, **YouTube-Modul mit einem Tipp in Surge installieren**, und die **drei fertigen Zeilen fürs Surge-Profil** (NextDNS und Schnittstelle in einem Rutsch). Erledigte Schritte hakst du ab, ein grüner Balken zeigt den Fortschritt. Die folgenden Abschnitte beschreiben dieselben Schritte ausführlich.
 
 ## 3. Mit Surge verbinden
 
 Das geht erst, wenn Surge nach [Schritt 2](2-surge-youtube.md) eingerichtet ist, inklusive vertrautem Zertifikat.
 
-1. In der App: **Menü → Verbindung & Einstellungen**. Ein zufälliger Schlüssel ist schon eingetragen.
+1. In der App: **Mehr → Verbindung & Design**. Ein zufälliger Schlüssel ist schon eingetragen.
 2. **Zeilen kopieren** tippen.
 3. In Surge das Profil im **Textmodus** öffnen und die Zeilen unter `[General]` einfügen. Sie sehen etwa so aus:
    ```
@@ -63,7 +63,7 @@ Das geht erst, wenn Surge nach [Schritt 2](2-surge-youtube.md) eingerichtet ist,
 | Rot mit Kreuz | **Schlüssel passt nicht** |
 | Grau | **Surge ist aus** oder noch nicht eingerichtet |
 
-Dasselbe Schild sitzt klein in der Titelleiste und unten rechts neben der Uhr.
+Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschlüsselt und gefiltert wird. Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
 
 ## Sicherheit
 
@@ -73,6 +73,6 @@ Dasselbe Schild sitzt klein in der Titelleiste und unten rechts neben der Uhr.
 
 ## Gut zu wissen
 
-- Für den **NOTAUS** und den **Hauptschalter** nutzt die App die offiziellen Surge-Befehle `surge:///stop` und `surge:///start`. Das iPhone fragt eventuell „In Surge öffnen?“. Danach wechselst du zurück in die App, und sie aktualisiert sich selbst.
-- Laut dem Projekt hinter Surges Web-Dashboard kann die HTTP-Schnittstelle nach dem Kauf ein aktives Update-Abo brauchen. Das konnte ich nicht sicher klären. In der Testwoche geht alles, und NOTAUS und Hauptschalter funktionieren in jedem Fall.
+- Für **Alles sofort stoppen** und den **Hauptschalter** nutzt die App die offiziellen Surge-Befehle `surge:///stop` und `surge:///start`. Das iPhone fragt eventuell „In Surge öffnen?“. Danach wechselst du zurück in die App, und sie aktualisiert sich selbst.
+- Laut dem Projekt hinter Surges Web-Dashboard kann die HTTP-Schnittstelle nach dem Kauf ein aktives Update-Abo brauchen. Das konnte ich nicht sicher klären. In der Testwoche geht alles, und „Alles sofort stoppen“ und der Hauptschalter funktionieren in jedem Fall.
 - Wenn die App selbst einmal nicht reagiert: iPhone-**Einstellungen** öffnen und oben **VPN** ausschalten. Das stoppt Surge ebenfalls.
