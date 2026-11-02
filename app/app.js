@@ -561,12 +561,14 @@
     const on = !!st && st.enabled.includes(SPONSOR_MODULE);
     $('sp-module').textContent = !st ? 'Surge nicht verbunden' : !known ? 'nicht installiert' : on ? 'an' : 'aus';
     if (!st) { $('sp-last').textContent = '–'; return; }
+    $('sp-last').textContent = 'Lade …';
+    const stand = () => `(Stand ${new Date().toLocaleTimeString('de-DE')})`;
     try {
       state.sponsor = await readSponsor();
-      $('sp-last').textContent = describeSponsor(state.sponsor);
+      $('sp-last').textContent = `${describeSponsor(state.sponsor)} ${stand()}`;
       $('sp-debug').checked = state.sponsor.debug;
     } catch (e) {
-      $('sp-last').textContent = `Nicht lesbar: ${errorText(e)}`;
+      $('sp-last').textContent = `Nicht lesbar: ${errorText(e)} ${stand()}`;
     }
   }
   function openSponsor() {
@@ -677,7 +679,7 @@
     $('btn-sp-test').addEventListener('click', async () => {
       try {
         await backend.evaluate("$notification.post('Werbefrei', 'Testmitteilung', 'Wenn du das siehst, können Sponsor-Hinweise angezeigt werden.'); $done({});");
-        balloon('Testmitteilung gesendet', 'Kommt keine Mitteilung: Einstellungen → Mitteilungen → Surge → erlauben.');
+        balloon('Testmitteilung gesendet', 'Kommt keine Mitteilung: In Surge unten auf der Startseite Mitteilungen erlauben.');
       } catch (e) {
         balloon('Hat nicht geklappt', errorText(e), 'bad');
       }
