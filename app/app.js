@@ -41,9 +41,9 @@
 
   function createSurgeBackend(cfg) {
     const base = String(cfg.base).replace(/\/+$/, '');
-    async function call(path, method = 'GET', body) {
+    async function call(path, method = 'GET', body, timeoutMs = 4000) {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 4000);
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       const headers = { 'X-Key': cfg.key };
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       let res;
@@ -84,7 +84,9 @@
       flushDns: () => call('/dns/flush', 'POST'),
       recentRequests: () => call('/requests/recent'),
       // Führt ein kleines Skript in Surge aus (für Status, Testmodus, Testmitteilung).
-      evaluate: (code) => call('/scripting/evaluate', 'POST', { script_text: code, mock_type: 'cron', timeout: 5 }),
+      evaluate: (code) => call('/scripting/evaluate', 'POST', { script_text: code, mock_type: 'cron', timeout: 5 }, 8000),
+      // Lädt Module und Skripte neu aus dem Internet (Surge iOS 5.23+).
+      updateResources: () => call('/external_resources/update', 'POST', { key: 'all' }, 60000),
     };
   }
 
@@ -118,12 +120,13 @@
           { URL: demoUrl('rr1---sn-demo.googlevideo.com', '/initplayback?ack=1'), modified: true, notes: ['[Map Local] Mapped'], rule: 'FINAL', policyName: 'DIRECT' },
         ] };
       },
+      async updateResources() { await wait(); return { all: 'success' }; },
       async evaluate(code) {
         await wait();
         const m = /write\("(true|false)"/.exec(code);
         if (m) { s.sponsorDebug = m[1]; save(); }
         return { result: {
-          status: JSON.stringify({ t: Date.now() - 90000, step: 'gemeldet', text: '2 Stellen gemeldet', count: 2 }),
+          status: JSON.stringify({ t: Date.now() - 90000, v: 2, step: 'gemeldet', text: '2 Stellen gemeldet', count: 2 }),
           debug: s.sponsorDebug || 'false',
         } };
       },
@@ -553,7 +556,22 @@
   function describeSponsor(sp) {
     if (!sp || !sp.last) return 'Noch kein Video geprüft';
     const time = new Date(sp.last.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    return `Zuletzt ${time}: ${sp.last.text}`;
+    return `Zuletzt ${time}: ${sp.last.text}${sp.last.v ? ` · Skript v${sp.last.v}` : ''}`;
+  }
+  // Holt Module und Skripte frisch aus dem Repo und lädt das Profil neu.
+  async function updateRulesAndScripts() {
+    let summary = '';
+    try {
+      const res = await backend.updateResources();
+      const values = Object.values(res || {});
+      const failed = values.filter((v) => v !== 'success');
+      summary = failed.length ? `${failed.length} Datei(en) mit Fehler: ${String(failed[0]).slice(0, 80)}` : 'Module und Skripte sind aktuell.';
+    } catch (e) {
+      if (e && e.kind === 'http' && e.status === 404) summary = 'Diese Surge-Version kann Skripte nicht per Knopf aktualisieren.';
+      else throw e;
+    }
+    await backend.reloadProfile();
+    return summary;
   }
   async function fillSponsorSheet() {
     const st = state.status;
@@ -685,6 +703,19 @@
       }
     });
     $('btn-sp-refresh').addEventListener('click', fillSponsorSheet);
+    $('btn-sp-update').addEventListener('click', async () => {
+      $('btn-sp-update').disabled = true;
+      balloon('Lade Skript neu …', 'Das kann ein paar Sekunden dauern.');
+      try {
+        const summary = await updateRulesAndScripts();
+        balloon('Skript neu geladen', `${summary} Jetzt YouTube ganz schließen, neu öffnen und ein Video starten.`);
+        log(`Sponsor-Skript neu geladen: ${summary}`);
+      } catch (e) {
+        balloon('Hat nicht geklappt', errorText(e), 'bad');
+      } finally {
+        $('btn-sp-update').disabled = false;
+      }
+    });
     $('btn-pause').addEventListener('click', () => act('all', async () => {
       if (state.status && state.status.available.includes(settings.module)) await backend.setModule(settings.module, false);
       await backend.setFeature('mitm', false);
@@ -696,8 +727,21 @@
       if (state.status && state.status.available.includes(settings.module)) await backend.setModule(settings.module, true);
     }, 'Alles eingeschaltet', 'Die YouTube-App einmal ganz schließen und neu öffnen.'));
 
-    $('btn-reload').addEventListener('click', () => act('all', () => backend.reloadProfile(),
-      'Profil neu geladen', 'Surge hat Profil und Module neu eingelesen.'));
+    $('btn-reload').addEventListener('click', async () => {
+      if (state.busy.size) return;
+      state.busy.add('all'); render();
+      try {
+        const summary = await updateRulesAndScripts();
+        log(`Aktualisiert: ${summary}`);
+        balloon('Aktualisiert', `${summary} YouTube einmal ganz schließen und neu öffnen.`);
+      } catch (e) {
+        log(`Fehler: ${errorText(e)}`, 'bad');
+        balloon('Hat nicht geklappt', errorText(e), 'bad');
+      } finally {
+        state.busy.delete('all');
+        await refresh();
+      }
+    });
     $('btn-flush').addEventListener('click', () => act('all', () => backend.flushDns(),
       'DNS-Cache geleert', 'Neue Anfragen gehen wieder frisch an NextDNS.'));
 

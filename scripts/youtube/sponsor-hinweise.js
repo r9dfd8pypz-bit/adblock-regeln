@@ -10,6 +10,7 @@
 (() => {
   'use strict';
 
+  const VERSION = 2; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const STORE_KEY = 'werbefrei.sponsor.last';
   const STATUS_KEY = 'werbefrei.sponsor.status';   // letzter Ablauf, liest die Werbefrei-App
@@ -44,7 +45,7 @@
   const debug = (title, text) => { if (cfg.debug) $notification.post('Sponsor-Hinweise (Test)', title, text || ''); };
   // Merkt sich, was beim letzten Video passiert ist (nur auf dem iPhone, ohne Video-Kennung).
   const status = (step, text, count) => {
-    try { $persistentStore.write(JSON.stringify({ t: Date.now(), step, text, count: count || 0 }), STATUS_KEY); } catch (e) { /* egal */ }
+    try { $persistentStore.write(JSON.stringify({ t: Date.now(), v: VERSION, step, text, count: count || 0 }), STATUS_KEY); } catch (e) { /* egal */ }
   };
 
   // ---------- Video-Kennung ----------

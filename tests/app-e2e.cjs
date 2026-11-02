@@ -52,6 +52,10 @@ function surgeHandler(req, res) {
       return send({ enabled: surge[feature[1]] });
     }
     if (url === '/v1/profiles/reload' || url === '/v1/dns/flush') return send({});
+    if (url === '/v1/external_resources/update') {
+      surge.resourceUpdates = (surge.resourceUpdates || 0) + 1;
+      return send({ 'https://raw.githubusercontent.com/x/sponsor-hinweise.js': 'success' });
+    }
     if (url === '/v1/scripting/evaluate') {
       // Skript wirklich ausführen, mit nachgebautem Speicher und Mitteilungen
       vm.runInNewContext(data.script_text, {
@@ -147,6 +151,11 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.click('#btn-sp-test');
   await page.waitForTimeout(300);
   ok(surge.notes.length === 1 && surge.notes[0][1] === 'Testmitteilung', 'Testmitteilung wird über Surge verschickt');
+  const reloadsBefore = surge.calls.filter((c) => c.startsWith('POST /v1/profiles/reload')).length;
+  await page.click('#btn-sp-update');
+  await page.waitForFunction(() => document.getElementById('balloon-title').textContent === 'Skript neu geladen');
+  ok(surge.resourceUpdates === 1, '„Skript neu laden“ lässt Surge Module und Skripte neu herunterladen');
+  ok(surge.calls.filter((c) => c.startsWith('POST /v1/profiles/reload')).length === reloadsBefore + 1, 'Danach lädt Surge das Profil neu');
   await shot(page, '9-hell-sponsor.png');
   await page.click('#dlg-sponsor [data-close]');
 
