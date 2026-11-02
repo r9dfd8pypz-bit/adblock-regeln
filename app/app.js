@@ -1,0 +1,635 @@
+// Werbefrei-Zentrale: steuert Surge auf diesem iPhone.
+// - Surge starten/stoppen über die offiziellen URL-Befehle surge:///start und surge:///stop
+//   (funktioniert immer, auch ohne Schnittstelle).
+// - Modul, Entschlüsselung und Skripte über Surges HTTP-Schnittstelle auf 127.0.0.1.
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const DEFAULTS = Object.freeze({
+    base: 'https://127.0.0.1:6171',
+    key: '',
+    module: 'YouTube werbefrei',
+    nextdnsId: '',
+    demo: false,
+  });
+  const POLL_MS = 5000;
+  const LOG_MAX = 40;
+
+  // ---------- Speicher (nur auf diesem Gerät) ----------
+  const storage = {
+    get(key, fallback) {
+      try {
+        const v = localStorage.getItem('wf.' + key);
+        return v === null ? fallback : JSON.parse(v);
+      } catch { return fallback; }
+    },
+    set(key, value) {
+      try { localStorage.setItem('wf.' + key, JSON.stringify(value)); } catch { /* z. B. privater Modus */ }
+    },
+  };
+
+  let settings = { ...DEFAULTS, ...storage.get('settings', {}) };
+
+  // ---------- Verbindung zu Surge ----------
+  class ApiError extends Error {
+    constructor(kind, status) { super(kind); this.kind = kind; this.status = status; }
+  }
+
+  function createSurgeBackend(cfg) {
+    const base = String(cfg.base).replace(/\/+$/, '');
+    async function call(path, method = 'GET', body) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4000);
+      const headers = { 'X-Key': cfg.key };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      let res;
+      try {
+        res = await fetch(`${base}/v1${path}`, {
+          method,
+          headers,
+          body: body === undefined ? undefined : JSON.stringify(body),
+          cache: 'no-store',
+          signal: ctrl.signal,
+        });
+      } catch {
+        throw new ApiError('offline');
+      } finally {
+        clearTimeout(timer);
+      }
+      if (res.status === 401 || res.status === 403) throw new ApiError('auth', res.status);
+      if (!res.ok) throw new ApiError('http', res.status);
+      const text = await res.text();
+      try { return text ? JSON.parse(text) : {}; } catch { return {}; }
+    }
+    return {
+      demo: false,
+      async status() {
+        const [modules, mitm, scripting] = await Promise.all([
+          call('/modules'), call('/features/mitm'), call('/features/scripting'),
+        ]);
+        return {
+          enabled: Array.isArray(modules.enabled) ? modules.enabled : [],
+          available: Array.isArray(modules.available) ? modules.available : [],
+          mitm: mitm.enabled === true,
+          scripting: scripting.enabled === true,
+        };
+      },
+      setModule: (name, on) => call('/modules', 'POST', { [name]: on }),
+      setFeature: (feature, on) => call(`/features/${feature}`, 'POST', { enabled: on }),
+      reloadProfile: () => call('/profiles/reload', 'POST'),
+      flushDns: () => call('/dns/flush', 'POST'),
+    };
+  }
+
+  // Demo: verhält sich wie Surge, ohne dass Surge installiert sein muss.
+  function createDemoBackend(cfg) {
+    const s = storage.get('demo', { running: true, enabled: [cfg.module], mitm: true, scripting: true });
+    const save = () => storage.set('demo', s);
+    const wait = () => new Promise((r) => setTimeout(r, 300));
+    return {
+      demo: true,
+      async status() {
+        await wait();
+        if (!s.running) throw new ApiError('offline');
+        return { enabled: [...s.enabled], available: [cfg.module], mitm: s.mitm, scripting: s.scripting };
+      },
+      async setModule(name, on) {
+        await wait();
+        s.enabled = on ? [...new Set([...s.enabled, name])] : s.enabled.filter((n) => n !== name);
+        save();
+      },
+      async setFeature(feature, on) { await wait(); s[feature] = on; save(); },
+      async reloadProfile() { await wait(); },
+      async flushDns() { await wait(); },
+      setRunning(on) { s.running = on; save(); },
+    };
+  }
+
+  const makeBackend = (cfg) => (cfg.demo ? createDemoBackend(cfg) : createSurgeBackend(cfg));
+  let backend = makeBackend(settings);
+
+  // ---------- Zustand ----------
+  const state = { reach: 'unknown', status: null, busy: new Set() };
+  let refreshing = null;
+
+  function refresh() {
+    if (!settings.demo && !settings.key) {
+      state.reach = 'setup';
+      state.status = null;
+      render();
+      return Promise.resolve();
+    }
+    if (refreshing) return refreshing;
+    refreshing = (async () => {
+      try {
+        state.status = await backend.status();
+        state.reach = 'ok';
+        if (!settings.demo) storage.set('everConnected', true);
+      } catch (e) {
+        state.status = null;
+        state.reach = e && e.kind === 'auth' ? 'auth' : 'offline';
+      } finally {
+        refreshing = null;
+        render();
+      }
+    })();
+    return refreshing;
+  }
+
+  // ---------- Anzeige ----------
+  const MARKS = { ok: '#i-check', warn: '#i-pause', bad: '#i-cross', idle: '#i-dots' };
+
+  function setSwitch(el, on, disabled, busy) {
+    el.setAttribute('aria-checked', on ? 'true' : 'false');
+    el.disabled = !!disabled;
+    if (busy) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy');
+  }
+
+  function render() {
+    const st = state.status;
+    const running = state.reach === 'ok';
+    const moduleKnown = !!st && st.available.includes(settings.module);
+    const moduleOn = !!st && st.enabled.includes(settings.module);
+    const busy = (k) => state.busy.has(k);
+
+    setSwitch($('sw-surge'), running, busy('surge'), busy('surge'));
+    setSwitch($('sw-module'), moduleOn, !running || !moduleKnown || busy('module') || busy('all'), busy('module'));
+    setSwitch($('sw-mitm'), !!(st && st.mitm), !running || busy('mitm') || busy('all'), busy('mitm'));
+    setSwitch($('sw-scripting'), !!(st && st.scripting), !running || busy('scripting') || busy('all'), busy('scripting'));
+    for (const id of ['btn-pause', 'btn-resume', 'btn-reload', 'btn-flush']) $(id).disabled = !running || busy('all');
+
+    $('module-sub').textContent = st && !moduleKnown
+      ? `Modul „${settings.module}“ ist in Surge nicht installiert`
+      : 'Werbung in der YouTube-App entfernen';
+
+    const everConnected = storage.get('everConnected', false);
+    let level = 'idle';
+    let title = 'Verbinde …';
+    let text = '';
+    let showSetup = false;
+    if (state.reach === 'setup') {
+      title = 'Einrichtung nötig';
+      text = 'Einmal die Verbindung zu Surge einrichten. Der NOTAUS funktioniert auch ohne.';
+      showSetup = true;
+    } else if (state.reach === 'auth') {
+      level = 'bad';
+      title = 'Schlüssel passt nicht';
+      text = 'Der Schlüssel in den Einstellungen stimmt nicht mit dem im Surge-Profil überein.';
+      showSetup = true;
+    } else if (state.reach === 'offline') {
+      title = 'Surge ist aus';
+      text = everConnected || settings.demo
+        ? 'Dein iPhone läuft ganz normal, ohne Filter.'
+        : 'Oder die Schnittstelle ist noch nicht im Surge-Profil eingetragen.';
+      showSetup = !everConnected && !settings.demo;
+    } else if (state.reach === 'ok') {
+      const off = [
+        !moduleOn && 'YouTube-Modul',
+        !st.mitm && 'Entschlüsselung',
+        !st.scripting && 'Skripte',
+      ].filter(Boolean);
+      if (off.length === 0) {
+        level = 'ok';
+        title = 'Schutz aktiv';
+        text = 'YouTube wird gefiltert. NextDNS sperrt Werbe-Domains.';
+      } else if (off.length === 3) {
+        level = 'warn';
+        title = 'Pausiert';
+        text = 'Surge läuft, filtert aber nichts.';
+      } else {
+        level = 'warn';
+        title = 'Teilweise aktiv';
+        text = `Aus: ${off.join(', ')}. YouTube-Werbung kommt durch.`;
+      }
+    }
+
+    document.documentElement.dataset.level = level;
+    $('status-card').dataset.level = level;
+    $('status-mark').firstElementChild.setAttribute('href', MARKS[level]);
+    $('status-title').textContent = title;
+    $('status-text').textContent = text;
+    $('btn-setup').hidden = !showSetup;
+    $('tray-shield').dataset.level = level;
+
+    let host = settings.base;
+    try { host = new URL(settings.base).host; } catch { /* Anzeige wie eingegeben */ }
+    $('sb-conn').textContent = settings.demo
+      ? 'Demo-Modus'
+      : running ? `Verbunden · ${host}` : 'Nicht verbunden';
+
+    const dnsLink = $('link-dns');
+    dnsLink.href = settings.nextdnsId
+      ? `https://my.nextdns.io/${encodeURIComponent(settings.nextdnsId)}/logs`
+      : 'https://my.nextdns.io';
+  }
+
+  // ---------- Ereignisprotokoll ----------
+  let entries = storage.get('log', []);
+  function log(text, level = 'info') {
+    entries.unshift({ t: Date.now(), text, level });
+    entries = entries.slice(0, LOG_MAX);
+    storage.set('log', entries);
+    renderLog();
+  }
+  function renderLog() {
+    const ol = $('log');
+    if (!entries.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'Noch keine Ereignisse.';
+      ol.replaceChildren(li);
+      return;
+    }
+    ol.replaceChildren(...entries.map((e) => {
+      const li = document.createElement('li');
+      li.dataset.level = e.level;
+      const time = document.createElement('time');
+      time.dateTime = new Date(e.t).toISOString();
+      time.textContent = new Date(e.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const span = document.createElement('span');
+      span.textContent = e.text;
+      li.append(time, span);
+      return li;
+    }));
+  }
+
+  // ---------- Sprechblase ----------
+  let balloonTimer;
+  function balloon(title, text, level = 'info') {
+    const b = $('balloon');
+    $('balloon-title').textContent = title;
+    $('balloon-text').textContent = text;
+    b.dataset.level = level;
+    b.hidden = false;
+    clearTimeout(balloonTimer);
+    balloonTimer = setTimeout(() => { b.hidden = true; }, 5000);
+  }
+
+  function errorText(e) {
+    if (!e || !e.kind) return 'Unbekannter Fehler.';
+    if (e.kind === 'auth') return 'Surge hat den Schlüssel abgelehnt.';
+    if (e.kind === 'offline') return 'Surge ist nicht erreichbar. Läuft Surge?';
+    return `Surge hat mit Fehler ${e.status} geantwortet.`;
+  }
+
+  async function act(busyKey, task, okTitle, okText) {
+    if (state.busy.size) return;
+    state.busy.add(busyKey);
+    render();
+    try {
+      await task();
+      log(okTitle);
+      balloon(okTitle, okText);
+    } catch (e) {
+      const msg = errorText(e);
+      log(`Fehler: ${msg}`, 'bad');
+      balloon('Hat nicht geklappt', msg, 'bad');
+    } finally {
+      state.busy.delete(busyKey);
+      await refresh();
+    }
+  }
+
+  // ---------- Surge starten / stoppen ----------
+  function openSurge(action) {
+    const stop = action === 'stop';
+    log(stop ? 'Surge wird gestoppt' : 'Surge wird gestartet');
+    if (backend.demo) {
+      backend.setRunning(!stop);
+      balloon(stop ? 'Surge gestoppt' : 'Surge gestartet', stop ? 'Demo: Alles läuft wieder ohne Filter.' : 'Demo: Der Schutz ist wieder aktiv.');
+      refresh();
+      return;
+    }
+    const url = `surge:///${stop ? 'stop' : 'start'}?autoclose=true`;
+    window.__letzteExterneUrl = url;
+    balloon(stop ? 'Surge wird gestoppt' : 'Surge wird gestartet', 'Falls das iPhone fragt: „Öffnen“ tippen. Danach zurück in diese App.');
+    window.location.href = url;
+    setTimeout(refresh, 2000);
+  }
+
+  // ---------- NextDNS ----------
+  function setDns(level, title, text) {
+    $('dns-led').dataset.level = level;
+    $('dns-title').textContent = title;
+    $('dns-text').textContent = text;
+  }
+  async function checkNextDns(announce) {
+    const result = await runNextDnsCheck();
+    if (announce) {
+      if (result === 'ok') balloon('NextDNS aktiv', 'Dieses iPhone nutzt NextDNS.');
+      else if (result === 'bad') balloon('NextDNS nicht aktiv', 'Profil prüfen: Einstellungen → Allgemein → VPN und Geräteverwaltung → DNS.', 'bad');
+      else balloon('Status nicht abrufbar', 'Bitte die Testseite öffnen. Dort muss "status": "ok" stehen.');
+    }
+    return result;
+  }
+  async function runNextDnsCheck() {
+    setDns('idle', 'Prüfe …', '');
+    if (settings.demo) {
+      await new Promise((r) => setTimeout(r, 400));
+      setDns('ok', 'NextDNS aktiv', 'Demo · DOH · iPhone');
+      return 'ok';
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const res = await fetch('https://test.nextdns.io/', { cache: 'no-store', signal: ctrl.signal });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        setDns('ok', 'NextDNS aktiv', [data.protocol, data.deviceName, data.profile && `Profil ${data.profile}`].filter(Boolean).join(' · ') || 'Dieses iPhone nutzt NextDNS.');
+        log('NextDNS geprüft: aktiv');
+        return 'ok';
+      }
+      setDns('bad', 'NextDNS nicht aktiv', 'Dieses iPhone nutzt gerade nicht NextDNS.');
+      log('NextDNS geprüft: nicht aktiv', 'bad');
+      return 'bad';
+    } catch {
+      setDns('idle', 'Status nicht abrufbar', 'Tippe auf „Testseite“, um es im Browser zu prüfen.');
+      return 'unknown';
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // ---------- Design ----------
+  const THEMES = ['auto', 'light', 'dark'];
+  const THEME_NAMES = { auto: 'Automatisch', light: 'Hell', dark: 'Dunkel' };
+  function currentTheme() {
+    try { return THEMES.includes(localStorage.getItem('wf.theme')) ? localStorage.getItem('wf.theme') : 'auto'; } catch { return 'auto'; }
+  }
+  function applyTheme(t, announce) {
+    const root = document.documentElement;
+    if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = t;
+    try { localStorage.setItem('wf.theme', t); } catch { /* egal */ }
+    const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelector('meta[name="theme-color"]').content = dark ? '#142c6c' : '#245edb';
+    $('sb-theme').textContent = `Design: ${THEME_NAMES[t]}`;
+    if (announce) balloon(`Design: ${THEME_NAMES[t]}`, t === 'auto' ? 'Folgt dem Hell-/Dunkelmodus des iPhones.' : 'Bleibt so, bis du es änderst.');
+  }
+
+  // ---------- Startmenü ----------
+  function toggleMenu(open) {
+    const menu = $('start-menu');
+    const willOpen = open === undefined ? menu.hidden : open;
+    menu.hidden = !willOpen;
+    $('btn-start').setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) menu.querySelector('.sm-item').focus({ preventScroll: true });
+  }
+
+  // ---------- Einstellungen ----------
+  const KEY_CHARS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function generateKey() {
+    const bytes = new Uint8Array(20);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => KEY_CHARS[b % KEY_CHARS.length]).join('');
+  }
+  function surgeLines(base, key) {
+    let u;
+    try { u = new URL(base); } catch { return '# Die Adresse ist ungültig.'; }
+    const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+    return `http-api = ${key || 'SCHLUESSEL'}@${u.hostname}:${port}\nhttp-api-tls = ${u.protocol === 'https:'}`;
+  }
+  function readForm() {
+    return {
+      base: $('f-base').value.trim() || DEFAULTS.base,
+      key: $('f-key').value.trim(),
+      module: $('f-module').value.trim() || DEFAULTS.module,
+      nextdnsId: $('f-nextdns').value.trim(),
+      demo: $('f-demo').checked,
+    };
+  }
+  function updateLines() {
+    const f = readForm();
+    $('f-lines').textContent = surgeLines(f.base, f.key);
+  }
+  function validate(f) {
+    if (!f.demo) {
+      let u;
+      try { u = new URL(f.base); } catch { return 'Die Adresse ist ungültig.'; }
+      if (!/^https?:$/.test(u.protocol)) return 'Die Adresse muss mit https:// oder http:// beginnen.';
+      if (!/^[A-Za-z0-9]{8,}$/.test(f.key)) return 'Der Schlüssel braucht mindestens 8 Buchstaben oder Ziffern (ohne Sonderzeichen).';
+    }
+    if (f.nextdnsId && !/^[a-z0-9]{4,12}$/i.test(f.nextdnsId)) return 'Die NextDNS-ID besteht nur aus Buchstaben und Ziffern.';
+    return '';
+  }
+  function openSettings() {
+    toggleMenu(false);
+    $('f-base').value = settings.base;
+    $('f-key').value = settings.key || generateKey();
+    $('f-module').value = settings.module;
+    $('f-nextdns').value = settings.nextdnsId;
+    $('f-demo').checked = settings.demo;
+    updateLines();
+    $('dlg-settings').showModal();
+  }
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      balloon('Kopiert', 'Jetzt in Surge im Profil unter [General] einfügen.');
+    } catch {
+      balloon('Kopieren nicht möglich', 'Bitte den Text antippen, markieren und manuell kopieren.', 'bad');
+    }
+  }
+
+  // ---------- Einrichtungs-Assistent ----------
+  let setupDone = storage.get('setupDone', {});
+  const NEXTDNS_ID = /^[a-z0-9]{4,12}$/i;
+
+  function ensureKey() {
+    if (settings.demo || settings.key) return;
+    settings = { ...settings, key: generateKey() };
+    storage.set('settings', settings);
+    backend = makeBackend(settings);
+  }
+  function setupLines() {
+    const dns = NEXTDNS_ID.test(settings.nextdnsId)
+      ? `encrypted-dns-server = https://dns.nextdns.io/${settings.nextdnsId}/Surge-iPhone`
+      : '# Zuerst in Schritt 1 deine NextDNS-ID eintragen';
+    return `${dns}\n${surgeLines(settings.base, settings.key)}`;
+  }
+  function renderSetup() {
+    const steps = [...document.querySelectorAll('#setup-steps .step')];
+    let done = 0;
+    for (const li of steps) {
+      const isDone = !!setupDone[li.dataset.step];
+      li.querySelector('.step-check input').checked = isDone;
+      li.classList.toggle('done', isDone);
+      if (isDone) done++;
+    }
+    $('setup-progress').textContent = `${done} von ${steps.length} Schritten erledigt`;
+    $('setup-bar').style.width = `${Math.round((done / steps.length) * 100)}%`;
+    $('s-lines').textContent = setupLines();
+  }
+  function openSetup() {
+    toggleMenu(false);
+    ensureKey();
+    $('s-nextdns').value = settings.nextdnsId;
+    renderSetup();
+    $('dlg-setup').showModal();
+    refresh();
+  }
+  async function testConnection(cfg) {
+    balloon('Teste …', 'Verbinde mit Surge.');
+    try {
+      const st = await makeBackend(cfg).status();
+      const found = st.available.includes(cfg.module);
+      balloon('Verbindung klappt', found ? `Modul „${cfg.module}“ gefunden.` : `Verbunden, aber Modul „${cfg.module}“ fehlt in Surge.`, found ? 'info' : 'bad');
+      return true;
+    } catch (e) {
+      balloon('Keine Verbindung', `${errorText(e)} Stehen die Zeilen im Surge-Profil, und ist das Surge-Zertifikat vertrauenswürdig?`, 'bad');
+      return false;
+    }
+  }
+
+  // ---------- Ereignisse verdrahten ----------
+  function wire() {
+    $('sw-surge').addEventListener('click', () => {
+      openSurge($('sw-surge').getAttribute('aria-checked') === 'true' ? 'stop' : 'start');
+    });
+    $('btn-notaus').addEventListener('click', () => openSurge('stop'));
+
+    $('sw-module').addEventListener('click', () => {
+      const on = $('sw-module').getAttribute('aria-checked') !== 'true';
+      act('module', () => backend.setModule(settings.module, on),
+        on ? 'YouTube-Modul eingeschaltet' : 'YouTube-Modul ausgeschaltet',
+        on ? 'Die YouTube-App einmal ganz schließen und neu öffnen.' : 'YouTube läuft wieder ganz normal.');
+    });
+    $('sw-mitm').addEventListener('click', () => {
+      const on = $('sw-mitm').getAttribute('aria-checked') !== 'true';
+      act('mitm', () => backend.setFeature('mitm', on),
+        on ? 'Entschlüsselung eingeschaltet' : 'Entschlüsselung ausgeschaltet',
+        on ? 'Gilt nur für die YouTube-Adressen aus dem Modul.' : 'Surge entschlüsselt jetzt gar nichts mehr.');
+    });
+    $('sw-scripting').addEventListener('click', () => {
+      const on = $('sw-scripting').getAttribute('aria-checked') !== 'true';
+      act('scripting', () => backend.setFeature('scripting', on),
+        on ? 'Skripte eingeschaltet' : 'Skripte ausgeschaltet',
+        on ? 'Die Werbung wird wieder aus den Antworten gelöscht.' : 'Antworten werden nicht mehr verändert.');
+    });
+
+    $('btn-pause').addEventListener('click', () => act('all', async () => {
+      if (state.status && state.status.available.includes(settings.module)) await backend.setModule(settings.module, false);
+      await backend.setFeature('mitm', false);
+      await backend.setFeature('scripting', false);
+    }, 'Alles pausiert', 'Surge läuft weiter, filtert aber nichts.'));
+    $('btn-resume').addEventListener('click', () => act('all', async () => {
+      await backend.setFeature('mitm', true);
+      await backend.setFeature('scripting', true);
+      if (state.status && state.status.available.includes(settings.module)) await backend.setModule(settings.module, true);
+    }, 'Alles eingeschaltet', 'Die YouTube-App einmal ganz schließen und neu öffnen.'));
+
+    $('btn-reload').addEventListener('click', () => act('all', () => backend.reloadProfile(),
+      'Profil neu geladen', 'Surge hat Profil und Module neu eingelesen.'));
+    $('btn-flush').addEventListener('click', () => act('all', () => backend.flushDns(),
+      'DNS-Cache geleert', 'Neue Anfragen gehen wieder frisch an NextDNS.'));
+
+    $('btn-dns-check').addEventListener('click', () => checkNextDns(false));
+    $('btn-setup').addEventListener('click', () => (state.reach === 'auth' ? openSettings() : openSetup()));
+
+    $('setup-steps').addEventListener('change', (e) => {
+      const li = e.target.closest('.step');
+      if (!li || !e.target.matches('.step-check input')) return;
+      setupDone = { ...setupDone, [li.dataset.step]: e.target.checked };
+      storage.set('setupDone', setupDone);
+      renderSetup();
+    });
+    $('s-nextdns').addEventListener('input', () => {
+      const v = $('s-nextdns').value.trim().toLowerCase();
+      if (v === '' || NEXTDNS_ID.test(v)) {
+        settings = { ...settings, nextdnsId: v };
+        storage.set('settings', settings);
+        $('s-lines').textContent = setupLines();
+        render();
+      }
+    });
+    $('setup-steps').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-setup]');
+      if (!btn) return;
+      const what = btn.dataset.setup;
+      if (what === 'dns-check') checkNextDns(true);
+      else if (what === 'copy') copyText(setupLines());
+      else if (what === 'start') openSurge('start');
+      else if (what === 'test') testConnection(settings).then(() => refresh());
+    });
+    $('btn-help').addEventListener('click', () => $('dlg-help').showModal());
+    $('btn-theme').addEventListener('click', () => {
+      const next = THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length];
+      applyTheme(next, true);
+    });
+
+    $('btn-start').addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+    $('start-menu').addEventListener('click', (e) => {
+      const item = e.target.closest('[data-action]');
+      if (!item) return;
+      const action = item.dataset.action;
+      toggleMenu(false);
+      if (action === 'setup') openSetup();
+      else if (action === 'settings') openSettings();
+      else if (action === 'help') $('dlg-help').showModal();
+      else if (action === 'notaus') openSurge('stop');
+      else if (action.startsWith('theme-')) applyTheme(action.slice(6), true);
+    });
+    document.addEventListener('click', (e) => {
+      if (!$('start-menu').hidden && !e.target.closest('#start-menu')) toggleMenu(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('start-menu').hidden) { toggleMenu(false); $('btn-start').focus(); }
+    });
+
+    for (const dlg of document.querySelectorAll('dialog')) {
+      dlg.addEventListener('click', (e) => {
+        if (e.target.closest('[data-close]')) dlg.close();
+      });
+    }
+
+    for (const id of ['f-base', 'f-key']) $(id).addEventListener('input', updateLines);
+    $('btn-genkey').addEventListener('click', () => { $('f-key').value = generateKey(); updateLines(); });
+    $('btn-copy').addEventListener('click', () => copyText($('f-lines').textContent));
+    $('btn-cert').addEventListener('click', () => {
+      const f = readForm();
+      const url = `${f.base.replace(/\/+$/, '')}/v1/mitm/ca?x-key=${encodeURIComponent(f.key)}`;
+      window.open(url, '_blank', 'noopener');
+    });
+    $('btn-test').addEventListener('click', async () => {
+      const f = readForm();
+      const problem = validate(f);
+      if (problem) { balloon('Bitte prüfen', problem, 'bad'); return; }
+      await testConnection(f);
+    });
+    $('form-settings').addEventListener('submit', (e) => {
+      const f = readForm();
+      const problem = validate(f);
+      if (problem) { e.preventDefault(); balloon('Bitte prüfen', problem, 'bad'); return; }
+      const demoChanged = f.demo !== settings.demo;
+      settings = f;
+      storage.set('settings', settings);
+      backend = makeBackend(settings);
+      log(demoChanged ? (settings.demo ? 'Demo-Modus eingeschaltet' : 'Demo-Modus ausgeschaltet') : 'Einstellungen gespeichert');
+      refresh();
+    });
+
+    $('balloon-close').addEventListener('click', () => { $('balloon').hidden = true; });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh();
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(currentTheme(), false));
+  }
+
+  function tickClock() {
+    $('clock').textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ---------- Start ----------
+  wire();
+  applyTheme(currentTheme(), false);
+  renderLog();
+  tickClock();
+  setInterval(tickClock, 15000);
+  refresh();
+  setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, POLL_MS);
+
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* ohne Offline-Modus weiter */ });
+  }
+})();
