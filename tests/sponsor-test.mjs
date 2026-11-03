@@ -80,8 +80,8 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 5 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
-  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 5, 'Hinterlässt einen Zeitstempel für „Video-Start“');
+  ok(st.step === 'bereit' && st.v === 6 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 6, 'Hinterlässt einen Zeitstempel für „Video-Start“');
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
@@ -125,6 +125,39 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(r.calls.length === 1, 'Neues Video in der Wiedergabe-Meldung: holt die Stellen selbst');
   ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor läuft – noch 46 s', 'Und meldet sofort, wenn gerade ein Sponsor läuft');
   ok(r.doneCount === 1, 'Wiedergabe-Meldung wird danach unverändert weitergeschickt');
+}
+
+// ---------- Werte im Inhalt der Meldung (iPhone-App) ----------
+const segStore = () => new Map([
+  ['werbefrei.sponsor.segments', JSON.stringify({ id: ID, t: Date.now(), segs: [{ start: 72.5, end: 126.4, category: 'sponsor' }] })],
+  ['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxxxx', cmt: 1, t: Date.now() })],
+]);
+{
+  const s3 = segStore();
+  const r = await run({ url: 'https://www.youtube.com/api/stats/qoe?fmt=243&event=streamingstats', body: str(`cpn=abc&docid=${ID}&cmt=1.5:79.9,11.5:80.2&bh=1`), store: s3 });
+  ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor läuft – noch 46 s', 'Werte im Inhalt (Text): Mitteilung während des Sponsors');
+  const pings = json(s3, 'werbefrei.sponsor.pings');
+  const p0 = pings && pings.items[0];
+  ok(p0 && p0.kind === 'qoe' && p0.url === 'event,fmt' && /^Text \d+ B: bh,cmt,cpn,docid$/.test(p0.body) && p0.id === 'ja' && p0.cmt === '9.9:99.9,99.9:99.9', `Protokoll mit Feldnamen: ${JSON.stringify(p0)}`);
+  ok(!JSON.stringify(pings).includes(ID) && !JSON.stringify(pings).includes('abc'), 'Protokoll enthält keine Werte (keine Video-Kennung, keine cpn)');
+}
+{
+  const s4 = segStore();
+  const r = await run({ url: 'https://s.youtube.com/api/stats/watchtime?ns=yt', body: str(JSON.stringify({ docid: ID, cmt: '81.0', st: 70 })), store: s4 });
+  ok(r.notes.length === 1, 'Werte im Inhalt (JSON): Mitteilung während des Sponsors');
+}
+{
+  const s5 = new Map();
+  const r = await run({ url: `https://s.youtube.com/api/stats/playback?ns=yt&docid=${ID}&ver=2`, store: s5, reply: reply200 });
+  ok(r.calls.length === 1 && r.notes.length === 0, 'Start-Meldung ohne Position: holt die Stellen, meldet aber noch nichts');
+  ok(json(s5, 'werbefrei.sponsor.pos').cmt === 0, 'Start-Meldung zählt als Position 0');
+}
+{
+  // get_watch: Kennung steckt verschachtelt (Feld 1 > Feld 2)
+  const getWatch = [...field(1, [...field(1, [...field(16, str('IOS'))]), ...field(2, str(ID))]), ...field(2, [...field(5, str('next-params'))])];
+  const r = await run({ url: 'https://youtubei.googleapis.com/youtubei/v1/get_watch?prettyPrint=false', body: getWatch, reply: reply200 });
+  ok(r.calls.length === 0 && r.doneCount === 1 && r.ms < 100, 'get_watch: Video erkannt, Start wird nicht verzögert');
+  ok(json(r.store, 'werbefrei.sponsor.status').step === 'erkannt', 'get_watch: verschachtelte Video-Kennung gefunden');
 }
 
 // ---------- Vorschau beim Start ----------

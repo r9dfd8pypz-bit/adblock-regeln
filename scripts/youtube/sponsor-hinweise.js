@@ -1,11 +1,11 @@
 // YouTube Sponsor-Wächter für Surge (eigenes Skript dieses Repos).
 //
 // Zwei Einsatzorte (siehe Modul youtube-sponsor-hinweise.sgmodule):
-// A) Anfrage /youtubei/v1/next – die YouTube-App öffnet ein Video.
+// A) Anfrage /youtubei/v1/next, /player oder /get_watch – die YouTube-App öffnet ein Video.
 //    Das Skript liest die Video-Kennung, fragt SponsorBlock datensparsam (nur die ersten
 //    4 Zeichen eines SHA-256-Hashes der Kennung) und merkt sich die Sponsor-Stellen.
-// B) Wiedergabe-Meldungen /api/stats/watchtime bzw. /api/stats/qoe – die App meldet etwa alle
-//    10 Sekunden die aktuelle Abspielposition (cmt) und die Video-Kennung (docid).
+// B) Wiedergabe-Meldungen /api/stats/… – die App meldet regelmäßig die aktuelle
+//    Abspielposition (cmt) und die Video-Kennung (docid), in der Adresse oder im Inhalt.
 //    Liegt die Position in einer Sponsor-Stelle, kommt GENAU DANN eine Mitteilung.
 //    Antippen öffnet das Video hinter der Stelle.
 // Keine Anfrage an YouTube wird verändert oder verzögert (außer A um die SponsorBlock-Abfrage).
@@ -13,7 +13,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 5; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 6; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
@@ -21,6 +21,7 @@
   const STATUS_KEY = 'werbefrei.sponsor.status';     // letzter Ablauf, liest die Werbefrei-App
   const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
   const RUNS_KEY = 'werbefrei.sponsor.runs';         // { next, ping, v } wann das Skript zuletzt lief
+  const PINGS_KEY = 'werbefrei.sponsor.pings';       // Aufbau der letzten Meldungen (nur Feldnamen, keine Werte)
   const CACHE_MS = 30 * 60 * 1000;
   const PING_FRESH_MS = 3 * 24 * 60 * 60 * 1000; // so lange gelten Positions-Meldungen als „funktionieren“
   const TIMEOUT_MS = 4500;
@@ -75,38 +76,49 @@
     return null;
   }
 
-  // Liest die oberste Ebene der protobuf-Nachricht und sucht ein 11-Zeichen-Feld (Video-Kennung).
-  // Feld 2 (videoId) wird bevorzugt.
-  function idFromProtobuf(b) {
-    let i = 0;
-    const n = b.length;
+  // Sucht in einer protobuf-Nachricht (bis 3 Ebenen tief) ein 11-Zeichen-Feld (Video-Kennung).
+  // Feld 2 (videoId) auf möglichst hoher Ebene wird bevorzugt. Nötig, weil neuere YouTube-Apps
+  // das Video über get_watch öffnen, wo die Kennung verschachtelt steckt.
+  function scanProto(b, from, to, depth, found) {
+    let i = from;
     const varint = () => {
-      let r = 0; let s = 0; let x;
-      do { if (i >= n) throw new Error('Ende'); x = b[i++]; r += (x & 0x7f) * 2 ** s; s += 7; } while (x & 0x80);
+      let r = 0; let sh = 0; let x;
+      do { if (i >= to) throw new Error('Ende'); x = b[i++]; r += (x & 0x7f) * 2 ** sh; sh += 7; } while (x & 0x80);
       return r;
     };
-    const found = [];
+    const local = [];
     try {
-      while (i < n) {
+      while (i < to) {
         const tag = varint();
         const field = Math.floor(tag / 8);
         const wire = tag % 8;
+        if (field === 0) return false;
         if (wire === 0) varint();
         else if (wire === 1) i += 8;
         else if (wire === 5) i += 4;
         else if (wire === 2) {
           const len = varint();
-          if (len === 11 && i + 11 <= n) {
-            let s = '';
-            for (let k = 0; k < 11; k++) s += String.fromCharCode(b[i + k]);
-            if (ID_RE.test(s)) found.push({ field, id: s });
+          if (i + len > to) return false;
+          if (len === 11) {
+            let str = '';
+            for (let k = 0; k < 11; k++) str += String.fromCharCode(b[i + k]);
+            if (ID_RE.test(str)) local.push({ field, depth, id: str });
+          } else if (depth < 3 && len > 1) {
+            const sub = [];
+            if (scanProto(b, i, i + len, depth + 1, sub)) local.push(...sub);
           }
           i += len;
-        } else break;
+        } else return false;
       }
-    } catch (e) { /* abgeschnittene Nachricht: bisher Gefundenes nutzen */ }
-    const preferred = found.find((f) => f.field === 2);
-    return (preferred || found[0] || {}).id || null;
+    } catch (e) { return false; }
+    found.push(...local);
+    return true;
+  }
+  function idFromProtobuf(b) {
+    const found = [];
+    scanProto(b, 0, b.length, 0, found);
+    found.sort((x, y) => (x.field === 2 ? 0 : 1) - (y.field === 2 ? 0 : 1) || x.depth - y.depth);
+    return (found[0] || {}).id || null;
   }
 
   // ---------- SHA-256 (für die datensparsame Abfrage) ----------
@@ -228,26 +240,76 @@
     });
   }
 
-  // ---------- B) Wiedergabe-Meldung: Läuft gerade eine Sponsor-Stelle? ----------
-  function handlePlaybackPing(url) {
+  // ---------- B) Wiedergabe-Meldungen (/api/stats/…): Läuft gerade eine Sponsor-Stelle? ----------
+  // Die Werte können in der Adresse oder im Inhalt stehen (Text, JSON oder protobuf).
+  function asText(b) {
+    let printable = 0;
+    let str = '';
+    const n = Math.min(b.length, 65536);
+    for (let i = 0; i < n; i++) {
+      const c = b[i];
+      if (c === 9 || c === 10 || c === 13 || (c >= 32 && c < 127)) printable++;
+      str += String.fromCharCode(c);
+    }
+    return n && printable / n > 0.95 ? str : null;
+  }
+  function paramsFromText(text) {
+    const t = text.trim();
+    if (t.startsWith('{')) {
+      try {
+        const o = JSON.parse(t);
+        const flat = {};
+        for (const [k, v] of Object.entries(o)) if (v === null || typeof v !== 'object') flat[k] = String(v);
+        return flat;
+      } catch (e) { return {}; }
+    }
+    return t.includes('=') ? query(`?${t}`) : {};
+  }
+  const shape = (raw) => (raw === undefined || raw === null ? 'fehlt' : String(raw).slice(0, 24).replace(/[0-9]/g, '9'));
+  function recordPing(entry) {
+    const prev = readJSON(PINGS_KEY);
+    const items = prev && Array.isArray(prev.items) ? prev.items : [];
+    writeJSON(PINGS_KEY, { items: [entry, ...items].slice(0, 6) });
+  }
+
+  function handleStats(url) {
+    const kind = (/\/api\/stats\/([a-z_]+)/.exec(url) || [])[1] || '?';
     const q = query(url);
-    const id = q.docid;
-    const cmt = currentTime(q.cmt);
-    if (!ID_RE.test(id || '') || !isFinite(cmt)) { finish(); return; }
-    writeJSON(POS_KEY, { id, cmt, t: Date.now() });
+    const bytes = toBytes($request.body);
+    const text = bytes && bytes.length ? asText(bytes) : null;
+    const fromBody = text ? paramsFromText(text) : {};
+    const all = { ...fromBody, ...q };
+    let id = all.docid || all.video_id || all.videoId || all.v || null;
+    if (!ID_RE.test(id || '') && bytes && bytes.length && !text) id = idFromProtobuf(bytes);
+    const rawCmt = all.cmt !== undefined ? all.cmt : all.cmt_s;
+    let cmt = currentTime(rawCmt);
+    if (!isFinite(cmt) && kind === 'playback') cmt = 0; // Start-Meldung ohne Position = Anfang des Videos
+
+    recordPing({
+      t: Date.now(),
+      kind,
+      method: String($request.method || '?'),
+      url: Object.keys(q).sort().join(','),
+      body: !bytes || !bytes.length ? 'leer' : text ? `Text ${bytes.length} B: ${Object.keys(fromBody).sort().join(',')}` : `binär ${bytes.length} B`,
+      id: ID_RE.test(id || '') ? 'ja' : 'nein',
+      cmt: shape(rawCmt),
+    });
+
+    if (!ID_RE.test(id || '')) { finish(); return; }
+    if (isFinite(cmt)) writeJSON(POS_KEY, { id, cmt, t: Date.now() });
 
     const store = readJSON(SEGS_KEY);
     if (store && store.id === id && Date.now() - store.t < CACHE_MS) {
-      checkPosition(id, cmt, store.segs);
+      if (isFinite(cmt)) checkPosition(id, cmt, store.segs);
       finish();
       return;
     }
-    // Neues Video (z. B. weil die Anfrage beim Videostart nicht erkannt wurde): Stellen jetzt holen.
+    // Neues Video: Stellen jetzt holen.
     fetchSegments(id, (segs) => {
       try {
         if (segs && segs.length) {
-          status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – geholt während der Wiedergabe`, segs.length);
-          checkPosition(id, cmt, segs);
+          status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – Mitteilung kommt, wenn sie läuft`, segs.length);
+          if (isFinite(cmt)) checkPosition(id, cmt, segs);
         } else if (segs) {
           status('keine-daten', 'Für dieses Video ist nichts eingetragen');
           debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
@@ -288,6 +350,14 @@
       return idFromProtobuf(b);
     })();
     if (!id) { status('ohne-video', reason); debug(reason, ''); finish(); return; }
+
+    // Bei /player und /get_watch nicht abfragen, damit der Videostart nicht wartet.
+    // Die Stellen holt dann die erste Wiedergabe-Meldung.
+    if (!/\/youtubei\/v1\/next/.test($request.url || '')) {
+      status('erkannt', 'Video erkannt – Stellen kommen mit der ersten Wiedergabe-Meldung');
+      finish();
+      return;
+    }
 
     const cached = readJSON(SEGS_KEY);
     if (cached && cached.id === id && Date.now() - cached.t < CACHE_MS) {
@@ -336,13 +406,13 @@
 
   // ---------- Ablauf ----------
   try {
-    const isPing = /\/api\/stats\/(watchtime|qoe)\b/.test($request.url || '');
+    const isPing = /\/api\/stats\//.test($request.url || '');
     const runs = readJSON(RUNS_KEY) || {};
     runs[isPing ? 'ping' : 'next'] = Date.now();
     runs.v = VERSION;
     writeJSON(RUNS_KEY, runs);
     if (isPing) {
-      handlePlaybackPing($request.url);
+      handleStats($request.url);
     } else {
       handleVideoOpened();
     }

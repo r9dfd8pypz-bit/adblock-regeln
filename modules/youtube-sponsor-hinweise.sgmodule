@@ -1,17 +1,17 @@
 #!name=YouTube Sponsor-Hinweise
-#!desc=Sponsor-Wächter: Läuft im Video Werbung des Influencers, kommt genau dann eine Mitteilung. Antippen springt hinter die Stelle. Daten von SponsorBlock.
+#!desc=Sponsor-Wächter: Läuft im Video Werbung des Influencers, kommt genau dann eine Mitteilung. Antippen springt hinter die Stelle. Daten von SponsorBlock. (Modul v6)
 #!arguments=Sponsor:true,Eigenwerbung:true,AboAufruf:false,Vorschau:false,Testmodus:false
 #!arguments-desc=Sponsor: bezahlte Werbung im Video (true/false)\nEigenwerbung: Merch, eigene Produkte (true/false)\nAboAufruf: „Abonniert und liked“ (true/false)\nVorschau: zusätzlich beim Videostart alle Stellen melden (true/false)\nTestmodus: Mitteilungen auch, wenn nichts gefunden wurde (true/false)
 
-# A) Beim Öffnen eines Videos (/youtubei/v1/next) holt das Skript die Sponsor-Stellen.
+# A) Beim Öffnen eines Videos (/youtubei/v1/next, /player, /get_watch) wird das Video erkannt.
 #    An SponsorBlock gehen nur 4 Zeichen eines Hashes der Video-Kennung.
-# B) Während der Wiedergabe meldet die App ihre Position an YouTube (/api/stats/watchtime, /qoe).
-#    Das Skript liest nur mit und meldet sich, wenn gerade eine Sponsor-Stelle läuft.
-# Beide Anfragen werden unverändert weitergeschickt.
+# B) Während der Wiedergabe meldet die App ihre Position an YouTube (/api/stats/…).
+#    Das Skript liest nur mit (Adresse und Inhalt) und meldet sich, wenn eine Sponsor-Stelle läuft.
+# Alle Anfragen werden unverändert weitergeschickt.
 
 [Script]
-youtube.sponsor = type=http-request,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/next(\?.*)?$,requires-body=1,max-size=-1,binary-body-mode=1,timeout=10,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"vorschau":{{{Vorschau}}},"debug":{{{Testmodus}}}}"
-youtube.sponsor.position = type=http-request,pattern=^https:\/\/(s|www)\.youtube\.com\/api\/stats\/(watchtime|qoe)\?,requires-body=0,timeout=5,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"vorschau":{{{Vorschau}}},"debug":{{{Testmodus}}}}"
+youtube.sponsor.v6.start = type=http-request,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(next|player|get_watch)(\?.*)?$,requires-body=1,max-size=-1,binary-body-mode=1,timeout=10,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"vorschau":{{{Vorschau}}},"debug":{{{Testmodus}}}}"
+youtube.sponsor.v6.wiedergabe = type=http-request,pattern=^https:\/\/(s|www)\.youtube\.com\/api\/stats\/,requires-body=1,max-size=262144,binary-body-mode=1,timeout=8,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"vorschau":{{{Vorschau}}},"debug":{{{Testmodus}}}}"
 
 [MITM]
 hostname = %APPEND% youtubei.googleapis.com, s.youtube.com, www.youtube.com

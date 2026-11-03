@@ -152,7 +152,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok((await page.textContent('#sp-last')).includes('nichts eingetragen'), 'Prüf-Seite zeigt das letzte Ergebnis');
   ok(await page.textContent('#sp-segs') === '1:13–2:06', 'Prüf-Seite zeigt die Stellen im Video');
   await page.waitForFunction(() => document.getElementById('sp-r-pos').textContent !== 'Lade …');
-  ok(await page.textContent('#sp-r-next') === 'geladen ✅' && await page.textContent('#sp-r-pos') === 'fehlt ❌', 'Röntgenblick erkennt fehlende Wiedergabe-Regel (altes Modul)');
+  ok(await page.textContent('#sp-r-next') === 'fehlt ❌' && await page.textContent('#sp-r-pos') === 'fehlt ❌', 'Röntgenblick erkennt, dass die neuen Regeln fehlen');
   ok((await page.textContent('#sp-r-events')).includes('youtube.sponsor'), 'Röntgenblick zeigt Surge-Meldungen');
   ok((await page.textContent('#sp-advice')).startsWith('Altes Modul installiert'), `Klartext-Empfehlung: ${(await page.textContent('#sp-advice')).slice(0, 40)}`);
   ok(/^Zuletzt bei 1:20 im Video, vor [3-9] s$/.test(await page.textContent('#sp-pos')), `Prüf-Seite zeigt die letzte Position: ${await page.textContent('#sp-pos')}`);

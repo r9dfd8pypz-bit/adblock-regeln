@@ -20,6 +20,10 @@
   const SPONSOR_SEGS_KEY = 'werbefrei.sponsor.segments';
   const SPONSOR_POS_KEY = 'werbefrei.sponsor.pos';
   const SPONSOR_RUNS_KEY = 'werbefrei.sponsor.runs';
+  const SPONSOR_PINGS_KEY = 'werbefrei.sponsor.pings';
+  const RULE_START = 'youtube.sponsor.v6.start';
+  const RULE_PLAYBACK = 'youtube.sponsor.v6.wiedergabe';
+  const OLD_RULES = ['youtube.sponsor', 'youtube.sponsor.position'];
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -126,7 +130,7 @@
         ] };
       },
       async updateResources() { await wait(); return { all: 'success' }; },
-      async scriptingList() { await wait(); return { scripts: [{ name: 'youtube.response', type: 'http-response', path: '' }, { name: 'youtube.sponsor', type: 'http-request', path: '' }, { name: 'youtube.sponsor.position', type: 'http-request', path: '' }] }; },
+      async scriptingList() { await wait(); return { scripts: [{ name: 'youtube.response', type: 'http-response', path: '' }, { name: RULE_START, type: 'http-request', path: '' }, { name: RULE_PLAYBACK, type: 'http-request', path: '' }] }; },
       async events() { await wait(); return { events: [] }; },
       async evaluate(code) {
         await wait();
@@ -560,11 +564,11 @@
   // ---------- Sponsor-Hinweise prüfen ----------
   async function readSponsor() {
     const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
-    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)} });`;
+    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)}, pings: ${read(SPONSOR_PINGS_KEY)} });`;
     const res = await backend.evaluate(code);
     const r = (res && res.result) || {};
     const parse = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
-    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs) };
+    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs), pings: parse(r.pings) };
   }
   const mmss = (sec) => {
     const s = Math.max(0, Math.round(sec));
@@ -621,10 +625,12 @@
     const runs = sp && sp.runs;
     if (moduleState === 'nicht installiert') return ['bad', 'Modul fehlt', 'Unter YouTube → Sponsor-Hinweise auf „Installieren“ tippen und in Surge bestätigen.'];
     if (moduleState === 'aus') return ['bad', 'Modul ist aus', 'Den Schalter „Sponsor-Hinweise“ auf der Startseite einschalten.'];
-    if (x.names && !x.names.includes('youtube.sponsor')) return ['bad', 'Surge hat die Regel nicht geladen', 'Oben auf „Skript neu laden“ tippen. Hilft das nicht: In Surge → Modify → Modul „YouTube Sponsor-Hinweise“ nach links wischen → Löschen, dann hier „Modul aktualisieren“.'];
-    if (x.names && !x.names.includes('youtube.sponsor.position')) return ['bad', 'Altes Modul installiert', 'In Surge → Modify → Modul „YouTube Sponsor-Hinweise“ nach links wischen → Löschen. Dann hier auf „Modul aktualisieren“ tippen und in Surge bestätigen.'];
+    if (x.names && !x.names.includes(RULE_START) && x.names.some((n) => OLD_RULES.includes(n))) return ['bad', 'Altes Modul installiert', 'In Surge → Modify → Modul „YouTube Sponsor-Hinweise“ nach links wischen → Löschen. Dann hier auf „Modul aktualisieren“ tippen und in Surge bestätigen. Danach „Skript neu laden“.'];
+    if (x.names && (!x.names.includes(RULE_START) || !x.names.includes(RULE_PLAYBACK))) return ['bad', 'Surge hat die Regeln nicht geladen', 'Hier auf „Modul aktualisieren“ tippen und in Surge bestätigen. Hilft das nicht: Modul in Surge → Modify löschen und noch einmal „Modul aktualisieren“.'];
+    if (runs && runs.v && runs.v < 6) return ['bad', 'Altes Skript', 'Oben auf „Skript neu laden“ tippen, dann YouTube ganz schließen und neu öffnen.'];
     if (!runs || (!runs.next && !runs.ping)) return ['bad', 'Skript ist noch nie angesprungen', 'YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video 20 Sekunden laufen lassen. Dann hier „Aktualisieren“. Bleibt es so: Bericht kopieren und an Claude schicken.'];
     if (!runs.ping) return ['bad', 'Wiedergabe wird nicht mitgelesen', 'Das Video läuft, aber Surge sieht keine Positions-Meldungen. Bericht kopieren und an Claude schicken.'];
+    if (!(sp && sp.pos)) return ['bad', 'Meldungen gelesen, Position nicht gefunden', 'Surge liest die Meldungen mit, findet darin aber Video und Position nicht. Bericht kopieren und an Claude schicken – unter „Aufbau der Meldungen“ steht, wie sie bei dir aussehen.'];
     if (sp && sp.segs && sp.segs.segs && !sp.segs.segs.length) return ['ok', 'Alles läuft', 'Nur für das letzte Video ist bei SponsorBlock nichts eingetragen. Ein Video eines großen Kanals mit Sponsor ausprobieren.'];
     return ['ok', 'Alles läuft', 'Kommt eine bekannte Stelle, erscheint die Mitteilung während sie läuft. Kommt trotzdem keine: Bericht kopieren und an Claude schicken.'];
   }
@@ -666,8 +672,11 @@
   async function fillXray() {
     for (const id of ['sp-r-next', 'sp-r-pos', 'sp-r-stats', 'sp-r-events']) $(id).textContent = 'Lade …';
     const x = await xray();
-    $('sp-r-next').textContent = loaded(x.names, 'youtube.sponsor');
-    $('sp-r-pos').textContent = loaded(x.names, 'youtube.sponsor.position');
+    $('sp-r-next').textContent = loaded(x.names, RULE_START);
+    $('sp-r-pos').textContent = loaded(x.names, RULE_PLAYBACK);
+    const pings = state.sponsor && state.sponsor.pings && Array.isArray(state.sponsor.pings.items) ? state.sponsor.pings.items : [];
+    const pingLine = (p) => `${p.kind} (${p.method}) · Adresse: ${p.url || '–'} · Inhalt: ${p.body} · Video: ${p.id} · cmt: ${p.cmt}`;
+    $('sp-r-pings').textContent = pings.length ? pings.slice(0, 3).map(pingLine).join(' | ') : 'Noch keine aufgezeichnet';
     $('sp-r-stats').textContent = `${x.total} Anfragen gesamt · Positions-Meldungen mitgelesen: ${x.statsRead} · nicht entschlüsselt: ${x.statsTunnel} · Video-Start (/next): ${x.nextCount}`;
     $('sp-r-events').textContent = x.events.length ? x.events.join(' | ') : 'keine Fehler gemeldet';
     const [level, head, text] = advise(x, state.sponsor, $('sp-module').textContent);
@@ -688,6 +697,7 @@
       `Position: ${describePosition(sp)}`,
       `Anfragen: ${$('sp-r-stats').textContent}`,
       `Hosts: ${x.hosts.join(', ') || 'keine'}`,
+      `Aufbau der Meldungen:${pings.length ? `\n${pings.map((p) => `  - ${pingLine(p)}`).join('\n')}` : ' noch keine'}`,
       `Vermerke bei /next: ${x.nextNotes.join(' | ') || 'keine'}`,
       `Surge-Meldungen: ${$('sp-r-events').textContent}`,
     ].join('\n');
