@@ -24,6 +24,19 @@
   const RULE_START = 'youtube.sponsor.v6.start';
   const RULE_PLAYBACK = 'youtube.sponsor.v6.wiedergabe';
   const OLD_RULES = ['youtube.sponsor', 'youtube.sponsor.position'];
+  const SPONSOR_SCRIPT_URL = 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js';
+
+  // Welche Skript-Version liegt gerade online im Repo? (null, wenn nicht abrufbar)
+  async function onlineScriptVersion() {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(SPONSOR_SCRIPT_URL, { cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
+      const m = /const VERSION = (\d+);/.exec(await res.text());
+      return m ? Number(m[1]) : null;
+    } catch { return null; }
+  }
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -597,7 +610,7 @@
   }
   // Röntgenblick: Was hat Surge wirklich geladen, und was ist zuletzt passiert?
   async function xray() {
-    const [scr, rec, ev] = await Promise.allSettled([backend.scriptingList(), backend.recentRequests(), backend.events()]);
+    const [scr, rec, ev, onl] = await Promise.allSettled([backend.scriptingList(), backend.recentRequests(), backend.events(), backend.demo ? Promise.resolve(null) : onlineScriptVersion()]);
     const names = scr.status === 'fulfilled' && scr.value && Array.isArray(scr.value.scripts) ? scr.value.scripts.map((x) => x.name) : null;
     const reqs = rec.status === 'fulfilled' && rec.value && Array.isArray(rec.value.requests) ? rec.value.requests : [];
     const url = (r) => String(r.URL || '');
@@ -609,14 +622,16 @@
     const events = ev.status === 'fulfilled' && ev.value && Array.isArray(ev.value.events)
       ? ev.value.events.map((e) => String(e.content || '')).filter((c) => /sponsor|script|skript|module|modul/i.test(c)).slice(0, 3)
       : [];
-    return { names, statsRead, statsTunnel, nextCount: nextReqs.length, nextNotes, hosts, events, total: reqs.length };
+    const online = onl.status === 'fulfilled' ? onl.value : null;
+    return { names, statsRead, statsTunnel, nextCount: nextReqs.length, nextNotes, hosts, events, total: reqs.length, online };
   }
   const loaded = (names, n) => (!names ? 'unbekannt' : names.includes(n) ? 'geladen ✅' : 'fehlt ❌');
-  function describeRuns(sp) {
+  function describeRuns(sp, online) {
     const r = sp && sp.runs;
     if (!r) return 'Noch nie – das Skript ist bisher nicht angesprungen';
     const at = (t) => (t ? ago(t) : 'nie');
-    return `Video-Start: ${at(r.next)} · Wiedergabe: ${at(r.ping)} · Skript v${r.v || '?'}`;
+    const onl = online ? (online > (r.v || 0) ? ` (online schon v${online})` : ' (aktuell)') : '';
+    return `Video-Start: ${at(r.next)} · Wiedergabe: ${at(r.ping)} · Skript v${r.v || '?'}${onl}`;
   }
   let lastSponsorReport = '';
 
@@ -628,6 +643,7 @@
     if (x.names && !x.names.includes(RULE_START) && x.names.some((n) => OLD_RULES.includes(n))) return ['bad', 'Altes Modul installiert', 'In Surge → Modify → Modul „YouTube Sponsor-Hinweise“ nach links wischen → Löschen. Dann hier auf „Modul aktualisieren“ tippen und in Surge bestätigen. Danach „Skript neu laden“.'];
     if (x.names && (!x.names.includes(RULE_START) || !x.names.includes(RULE_PLAYBACK))) return ['bad', 'Surge hat die Regeln nicht geladen', 'Hier auf „Modul aktualisieren“ tippen und in Surge bestätigen. Hilft das nicht: Modul in Surge → Modify löschen und noch einmal „Modul aktualisieren“.'];
     if (runs && runs.v && runs.v < 6) return ['bad', 'Altes Skript', 'Oben auf „Skript neu laden“ tippen, dann YouTube ganz schließen und neu öffnen.'];
+    if (runs && runs.v && x.online && runs.v < x.online) return ['bad', `Neuere Version v${x.online} verfügbar`, `In Surge läuft noch v${runs.v}. Oben auf „Skript neu laden“ tippen, dann YouTube ganz schließen und neu öffnen. Steht hier danach immer noch die alte Version, 5 Minuten warten (GitHub speichert kurz zwischen) und noch einmal.`];
     if (!runs || (!runs.next && !runs.ping)) return ['bad', 'Skript ist noch nie angesprungen', 'YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video 20 Sekunden laufen lassen. Dann hier „Aktualisieren“. Bleibt es so: Bericht kopieren und an Claude schicken.'];
     if (!runs.ping) return ['bad', 'Wiedergabe wird nicht mitgelesen', 'Das Video läuft, aber Surge sieht keine Positions-Meldungen. Bericht kopieren und an Claude schicken.'];
     if (!(sp && sp.pos)) return ['bad', 'Meldungen gelesen, Position nicht gefunden', 'Surge liest die Meldungen mit, findet darin aber Video und Position nicht. Bericht kopieren und an Claude schicken – unter „Aufbau der Meldungen“ steht, wie sie bei dir aussehen.'];
@@ -663,7 +679,7 @@
       $('sp-last').textContent = `${describeSponsor(state.sponsor)} ${stand()}`;
       $('sp-segs').textContent = describeSegments(state.sponsor);
       $('sp-pos').textContent = describePosition(state.sponsor);
-      $('sp-r-runs').textContent = describeRuns(state.sponsor);
+      $('sp-r-runs').textContent = describeRuns(state.sponsor, null);
       $('sp-debug').checked = state.sponsor.debug;
     } catch (e) {
       $('sp-last').textContent = `Nicht lesbar: ${errorText(e)} ${stand()}`;
@@ -672,6 +688,7 @@
   async function fillXray() {
     for (const id of ['sp-r-next', 'sp-r-pos', 'sp-r-stats', 'sp-r-events']) $(id).textContent = 'Lade …';
     const x = await xray();
+    $('sp-r-runs').textContent = describeRuns(state.sponsor, x.online);
     $('sp-r-next').textContent = loaded(x.names, RULE_START);
     $('sp-r-pos').textContent = loaded(x.names, RULE_PLAYBACK);
     const pings = state.sponsor && state.sponsor.pings && Array.isArray(state.sponsor.pings.items) ? state.sponsor.pings.items : [];
@@ -691,7 +708,7 @@
       `Modul: ${$('sp-module').textContent}`,
       `Regel Video-Start: ${$('sp-r-next').textContent} · Regel Wiedergabe: ${$('sp-r-pos').textContent}`,
       `Alle Skripte: ${x.names ? x.names.join(', ') : 'unbekannt'}`,
-      `Skript lief zuletzt: ${describeRuns(sp)}`,
+      `Skript lief zuletzt: ${describeRuns(sp, x.online)}`,
       `Letztes Video: ${describeSponsor(sp)}`,
       `Stellen: ${describeSegments(sp)}`,
       `Position: ${describePosition(sp)}`,

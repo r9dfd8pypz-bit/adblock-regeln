@@ -80,7 +80,7 @@ ok(appJs.includes(`module: '${modulName}'`), `App kennt den Modulnamen „${modu
 const fremdeQuellen = [...appHtml.matchAll(/<(?:script|link)[^>]+(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]);
 ok(fremdeQuellen.length === 0, `App lädt keine Skripte oder Styles von fremden Servern ${fremdeQuellen.join(" ")}`);
 ok(!/@import|url\(\s*["']?https?:/.test(appCss), "Stylesheet lädt nichts von fremden Servern");
-const ERLAUBTE_APP_HOSTS = new Set(["127.0.0.1", "my.nextdns.io", "test.nextdns.io", "apple.nextdns.io", "dns.nextdns.io", "github.com", "apps.apple.com"]);
+const ERLAUBTE_APP_HOSTS = new Set(["127.0.0.1", "my.nextdns.io", "test.nextdns.io", "apple.nextdns.io", "dns.nextdns.io", "github.com", "apps.apple.com", "raw.githubusercontent.com"]);
 const appHosts = new Set([...(appHtml + appJs).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
 const fremdeHosts = [...appHosts].filter((h) => !ERLAUBTE_APP_HOSTS.has(h));
 ok(fremdeHosts.length === 0, `App spricht nur mit Surge, NextDNS, GitHub und App Store ${fremdeHosts.join(" ")}`);
