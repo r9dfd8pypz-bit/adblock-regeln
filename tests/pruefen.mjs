@@ -67,7 +67,8 @@ ok(!/workers\.dev/.test(skript), "Skript enthält keinen Cloudflare-Worker");
 // Eigenes Sponsor-Skript: darf nur SponsorBlock fragen und keinen Code nachladen
 const sponsor = readFileSync(join(ROOT, "scripts/youtube/sponsor-hinweise.js"), "utf8");
 const sponsorHosts = new Set([...sponsor.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
-ok([...sponsorHosts].every((h) => h === "sponsor.ajay.app"), `Sponsor-Skript spricht nur mit SponsorBlock ${[...sponsorHosts].join(" ")}`);
+ok([...sponsorHosts].every((h) => ["sponsor.ajay.app", "youtu.be", "www.youtube.com"].includes(h)), `Sponsor-Skript fragt nur SponsorBlock (dazu YouTube-Sprunglinks) ${[...sponsorHosts].join(" ")}`);
+ok(/\$httpClient\.get\(\{ url,/.test(sponsor) && (sponsor.match(/\$httpClient\./g) || []).length === 1, "Sponsor-Skript stellt genau eine Netzwerkanfrage (an SponsorBlock)");
 ok(!/\beval\(|new Function|\brequire\(|\bimport\(/.test(sponsor), "Sponsor-Skript lädt keinen fremden Code nach");
 ok(/sha256Hex\(id\)\.slice\(0, 4\)/.test(sponsor), "Sponsor-Skript sendet nur 4 Zeichen des Hashes");
 
@@ -80,7 +81,7 @@ ok(appJs.includes(`module: '${modulName}'`), `App kennt den Modulnamen „${modu
 const fremdeQuellen = [...appHtml.matchAll(/<(?:script|link)[^>]+(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]);
 ok(fremdeQuellen.length === 0, `App lädt keine Skripte oder Styles von fremden Servern ${fremdeQuellen.join(" ")}`);
 ok(!/@import|url\(\s*["']?https?:/.test(appCss), "Stylesheet lädt nichts von fremden Servern");
-const ERLAUBTE_APP_HOSTS = new Set(["127.0.0.1", "my.nextdns.io", "test.nextdns.io", "apple.nextdns.io", "dns.nextdns.io", "github.com", "apps.apple.com", "raw.githubusercontent.com"]);
+const ERLAUBTE_APP_HOSTS = new Set(["127.0.0.1", "my.nextdns.io", "test.nextdns.io", "apple.nextdns.io", "dns.nextdns.io", "github.com", "apps.apple.com", "raw.githubusercontent.com", "youtu.be", "www.youtube.com"]);
 const appHosts = new Set([...(appHtml + appJs).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
 const fremdeHosts = [...appHosts].filter((h) => !ERLAUBTE_APP_HOSTS.has(h));
 ok(fremdeHosts.length === 0, `App spricht nur mit Surge, NextDNS, GitHub und App Store ${fremdeHosts.join(" ")}`);

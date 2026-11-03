@@ -13,7 +13,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 7; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 8; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
@@ -22,6 +22,7 @@
   const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
   const RUNS_KEY = 'werbefrei.sponsor.runs';         // { next, ping, v } wann das Skript zuletzt lief
   const PINGS_KEY = 'werbefrei.sponsor.pings';       // Aufbau der letzten Meldungen (nur Feldnamen, keine Werte)
+  const LINK_KEY = 'werbefrei.sponsor.link';         // Art des Sprung-Links: kurz | web | app (wählt die Werbefrei-App)
   const CACHE_MS = 30 * 60 * 1000;
   const PING_FRESH_MS = 3 * 24 * 60 * 60 * 1000; // so lange gelten Positions-Meldungen als „funktionieren“
   const TIMEOUT_MS = 4500;
@@ -175,7 +176,15 @@
     const r = String(s % 60).padStart(2, '0');
     return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
   };
-  const jumpUrl = (id, sec) => `youtube://www.youtube.com/watch?v=${id}&t=${Math.ceil(sec)}s`;
+  // Sprung-Link: Surge öffnet youtube:// nicht, deshalb standardmäßig ein normaler YouTube-Link,
+  // den iOS direkt an die YouTube-App weitergibt.
+  const linkStyle = (() => { try { return $persistentStore.read(LINK_KEY) || 'kurz'; } catch (e) { return 'kurz'; } })();
+  const jumpUrl = (id, sec) => {
+    const t = Math.ceil(sec);
+    if (linkStyle === 'app') return `youtube://www.youtube.com/watch?v=${id}&t=${t}s`;
+    if (linkStyle === 'web') return `https://www.youtube.com/watch?v=${id}&t=${t}s`;
+    return `https://youtu.be/${id}?t=${t}`;
+  };
   const label = (s) => LABELS[s.category] || 'Sponsor';
   const list = (segs) => segs.map((s) => `${fmt(s.start)}–${fmt(s.end)}`).join(', ');
 

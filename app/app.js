@@ -21,6 +21,13 @@
   const SPONSOR_POS_KEY = 'werbefrei.sponsor.pos';
   const SPONSOR_RUNS_KEY = 'werbefrei.sponsor.runs';
   const SPONSOR_PINGS_KEY = 'werbefrei.sponsor.pings';
+  const SPONSOR_LINK_KEY = 'werbefrei.sponsor.link';
+  // Test-Video für den Sprung-Test (öffentlich, lange verfügbar), Sprung zu 1:00
+  const JUMP_TESTS = [
+    ['1', 'https://youtu.be/dQw4w9WgXcQ?t=60'],
+    ['2', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=60s'],
+    ['3', 'youtube://www.youtube.com/watch?v=dQw4w9WgXcQ&t=60s'],
+  ];
   const RULE_START = 'youtube.sponsor.v6.start';
   const RULE_PLAYBACK = 'youtube.sponsor.v6.wiedergabe';
   const OLD_RULES = ['youtube.sponsor', 'youtube.sponsor.position'];
@@ -577,11 +584,11 @@
   // ---------- Sponsor-Hinweise prüfen ----------
   async function readSponsor() {
     const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
-    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)}, pings: ${read(SPONSOR_PINGS_KEY)} });`;
+    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)}, pings: ${read(SPONSOR_PINGS_KEY)}, link: ${read(SPONSOR_LINK_KEY)} });`;
     const res = await backend.evaluate(code);
     const r = (res && res.result) || {};
     const parse = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
-    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs), pings: parse(r.pings) };
+    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs), pings: parse(r.pings), link: r.link || 'kurz' };
   }
   const mmss = (sec) => {
     const s = Math.max(0, Math.round(sec));
@@ -681,6 +688,7 @@
       $('sp-pos').textContent = describePosition(state.sponsor);
       $('sp-r-runs').textContent = describeRuns(state.sponsor, null);
       $('sp-debug').checked = state.sponsor.debug;
+      for (const b of document.querySelectorAll('[data-link-style]')) b.setAttribute('aria-pressed', String(b.dataset.linkStyle === state.sponsor.link));
     } catch (e) {
       $('sp-last').textContent = `Nicht lesbar: ${errorText(e)} ${stand()}`;
     }
@@ -828,6 +836,27 @@
       try {
         await backend.evaluate("$notification.post('Werbefrei', 'Testmitteilung', 'Wenn du das siehst, können Sponsor-Hinweise angezeigt werden.'); $done({});");
         balloon('Testmitteilung gesendet', 'Kommt keine Mitteilung: In Surge unten auf der Startseite Mitteilungen erlauben.');
+      } catch (e) {
+        balloon('Hat nicht geklappt', errorText(e), 'bad');
+      }
+    });
+    for (const b of document.querySelectorAll('[data-link-style]')) {
+      b.addEventListener('click', async () => {
+        try {
+          await backend.evaluate(`$persistentStore.write(${JSON.stringify(b.dataset.linkStyle)}, ${JSON.stringify(SPONSOR_LINK_KEY)}); $done({});`);
+          for (const x of document.querySelectorAll('[data-link-style]')) x.setAttribute('aria-pressed', String(x === b));
+          log(`Sprung-Link: ${b.textContent}`);
+          balloon('Sprung-Link gespeichert', `Ab jetzt nutzen die Sponsor-Mitteilungen „${b.textContent}“.`);
+        } catch (e) {
+          balloon('Hat nicht geklappt', errorText(e), 'bad');
+        }
+      });
+    }
+    $('btn-sp-jumptest').addEventListener('click', async () => {
+      const code = JUMP_TESTS.map(([n, url]) => `$notification.post('Sprung-Test ${n}', '', 'Tippen: öffnet YouTube bei 1:00?', { action: 'open-url', url: ${JSON.stringify(url)} });`).join(' ') + ' $done({});';
+      try {
+        await backend.evaluate(code);
+        balloon('Sprung-Test gesendet', 'Drei Mitteilungen kommen. Tippe nacheinander darauf und merke dir, welche YouTube bei 1:00 öffnet.');
       } catch (e) {
         balloon('Hat nicht geklappt', errorText(e), 'bad');
       }

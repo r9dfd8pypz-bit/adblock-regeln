@@ -80,8 +80,8 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 7 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
-  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 7, 'Hinterlässt einen Zeitstempel für „Video-Start“');
+  ok(st.step === 'bereit' && st.v === 8 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 8, 'Hinterlässt einen Zeitstempel für „Video-Start“');
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
@@ -98,7 +98,7 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(during.notes.length === 1, 'Während der Stelle: genau eine Mitteilung');
   ok(title === '⏭ Sponsor läuft – noch 46 s', `Titel: ${title}`);
   ok(text === 'Tippen = weiter bei 2:06', `Text: ${text}`);
-  ok(opt && opt.action === 'open-url' && opt.url === `youtube://www.youtube.com/watch?v=${ID}&t=127s`, `Sprung-Link: ${opt && opt.url}`);
+  ok(opt && opt.action === 'open-url' && opt.url === `https://youtu.be/${ID}?t=127`, `Sprung-Link (Standard): ${opt && opt.url}`);
   ok(json(store, 'werbefrei.sponsor.status').step === 'gemeldet', 'Status: gemeldet');
 
   const again = await run({ url: ping(ID, '92.0'), store });
@@ -183,6 +183,14 @@ const segStore = () => new Map([
   s8.set('werbefrei.sponsor.pos', JSON.stringify({ id: ID, cmt: 40, t: Date.now() - 10000 }));
   const tooEarly = await run({ url: ping(ID, '50.0'), store: s8 });
   ok(tooEarly.notes.length === 0, 'Zu früh (über 10 s vorher): noch keine Mitteilung');
+}
+
+// ---------- Andere Link-Arten (in der App wählbar) ----------
+for (const [style, expected] of [['web', `https://www.youtube.com/watch?v=${ID}&t=127s`], ['app', `youtube://www.youtube.com/watch?v=${ID}&t=127s`]]) {
+  const sx = segStore();
+  sx.set('werbefrei.sponsor.link', style);
+  const r = await run({ url: ping(ID, '80.2'), store: sx });
+  ok(r.notes[0] && r.notes[0][3].url === expected, `Link-Art „${style}“: ${r.notes[0] && r.notes[0][3].url}`);
 }
 
 // ---------- Vorschau beim Start ----------
