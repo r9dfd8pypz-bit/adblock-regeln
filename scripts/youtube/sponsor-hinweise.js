@@ -1,23 +1,28 @@
-// YouTube Sponsor-Hinweise für Surge (eigenes Skript dieses Repos).
+// YouTube Sponsor-Wächter für Surge (eigenes Skript dieses Repos).
 //
-// Läuft auf der Anfrage /youtubei/v1/next, die die YouTube-App beim Öffnen eines Videos stellt.
-// 1. Liest die Video-Kennung (aus der Adresse oder dem protobuf-Inhalt der Anfrage).
-// 2. Fragt SponsorBlock datensparsam: Es werden nur die ersten 4 Zeichen eines SHA-256-Hashes
-//    der Video-Kennung gesendet (k-Anonymität), nicht die Kennung selbst.
-// 3. Zeigt pro Sponsor-Stelle eine Mitteilung. Antippen öffnet das Video hinter der Stelle.
-// Die Anfrage an YouTube wird nicht verändert.
+// Zwei Einsatzorte (siehe Modul youtube-sponsor-hinweise.sgmodule):
+// A) Anfrage /youtubei/v1/next – die YouTube-App öffnet ein Video.
+//    Das Skript liest die Video-Kennung, fragt SponsorBlock datensparsam (nur die ersten
+//    4 Zeichen eines SHA-256-Hashes der Kennung) und merkt sich die Sponsor-Stellen.
+// B) Wiedergabe-Meldungen /api/stats/watchtime bzw. /api/stats/qoe – die App meldet etwa alle
+//    10 Sekunden die aktuelle Abspielposition (cmt) und die Video-Kennung (docid).
+//    Liegt die Position in einer Sponsor-Stelle, kommt GENAU DANN eine Mitteilung.
+//    Antippen öffnet das Video hinter der Stelle.
+// Keine Anfrage an YouTube wird verändert oder verzögert (außer A um die SponsorBlock-Abfrage).
 
 (() => {
   'use strict';
 
-  const VERSION = 2; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 3; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
-  const STORE_KEY = 'werbefrei.sponsor.last';
-  const STATUS_KEY = 'werbefrei.sponsor.status';   // letzter Ablauf, liest die Werbefrei-App
-  const DEBUG_KEY = 'werbefrei.sponsor.debug';     // Testmodus, setzt die Werbefrei-App
-  const DEDUPE_MS = 15 * 60 * 1000;
+  const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
+  const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
+  const NOTIFIED_KEY = 'werbefrei.sponsor.notified'; // { id, starts } schon gemeldete Stellen
+  const STATUS_KEY = 'werbefrei.sponsor.status';     // letzter Ablauf, liest die Werbefrei-App
+  const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
+  const CACHE_MS = 30 * 60 * 1000;
   const TIMEOUT_MS = 4500;
-  const MAX_NOTES = 3;
+  const MAX_SEGMENTS = 10;
   const LABELS = { sponsor: 'Sponsor', selfpromo: 'Eigenwerbung', interaction: 'Abo-Aufruf' };
 
   let finished = false;
@@ -33,7 +38,7 @@
   }, TIMEOUT_MS);
 
   function config() {
-    const c = { sponsor: true, selfpromo: true, interaction: false, debug: false };
+    const c = { sponsor: true, selfpromo: true, interaction: false, vorschau: false, debug: false };
     try {
       if (typeof $argument === 'string' && $argument && !$argument.includes('{{{')) Object.assign(c, JSON.parse($argument));
       else if ($argument && typeof $argument === 'object') Object.assign(c, $argument);
@@ -42,11 +47,11 @@
   }
   const cfg = config();
   try { if ($persistentStore.read(DEBUG_KEY) === 'true') cfg.debug = true; } catch (e) { /* egal */ }
-  const debug = (title, text) => { if (cfg.debug) $notification.post('Sponsor-Hinweise (Test)', title, text || ''); };
-  // Merkt sich, was beim letzten Video passiert ist (nur auf dem iPhone, ohne Video-Kennung).
-  const status = (step, text, count) => {
-    try { $persistentStore.write(JSON.stringify({ t: Date.now(), v: VERSION, step, text, count: count || 0 }), STATUS_KEY); } catch (e) { /* egal */ }
-  };
+  const debug = (title, text) => { if (cfg.debug) $notification.post('Sponsor-Wächter (Test)', title, text || ''); };
+  const readJSON = (key) => { try { return JSON.parse($persistentStore.read(key) || 'null'); } catch (e) { return null; } };
+  const writeJSON = (key, value) => { try { $persistentStore.write(JSON.stringify(value), key); } catch (e) { /* egal */ } };
+  // Merkt sich, was zuletzt passiert ist (nur auf dem iPhone, ohne Video-Kennung).
+  const status = (step, text, count) => writeJSON(STATUS_KEY, { t: Date.now(), v: VERSION, step, text, count: count || 0 });
 
   // ---------- Video-Kennung ----------
   const ID_RE = /^[A-Za-z0-9_-]{11}$/;
@@ -157,19 +162,28 @@
     return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
   };
   const jumpUrl = (id, sec) => `youtube://www.youtube.com/watch?v=${id}&t=${Math.ceil(sec)}s`;
+  const label = (s) => LABELS[s.category] || 'Sponsor';
+  const list = (segs) => segs.map((s) => `${fmt(s.start)}–${fmt(s.end)}`).join(', ');
 
-  function recentlyNotified(id) {
-    try {
-      const last = JSON.parse($persistentStore.read(STORE_KEY) || '{}');
-      return last.id === id && Date.now() - last.t < DEDUPE_MS;
-    } catch (e) { return false; }
+  function query(url) {
+    const out = {};
+    const q = String(url || '').split('?')[1] || '';
+    for (const part of q.split('&')) {
+      const i = part.indexOf('=');
+      if (i <= 0) continue;
+      try { out[decodeURIComponent(part.slice(0, i))] = decodeURIComponent(part.slice(i + 1).replace(/\+/g, ' ')); } catch (e) { /* kaputter Teil */ }
+    }
+    return out;
   }
-  function remember(id) {
-    try { $persistentStore.write(JSON.stringify({ id, t: Date.now() }), STORE_KEY); } catch (e) { /* egal */ }
+  // cmt ist entweder eine Zahl ("73.4") oder eine Liste "Zeitpunkt:Position,…" – dann zählt der letzte Eintrag.
+  function currentTime(raw) {
+    if (!raw) return NaN;
+    const last = String(raw).split(',').pop();
+    return parseFloat(last.includes(':') ? last.split(':').pop() : last);
   }
 
-  function pickSegments(list, id) {
-    const entry = Array.isArray(list) ? list.find((v) => v && v.videoID === id) : null;
+  function pickSegments(listData, id) {
+    const entry = Array.isArray(listData) ? listData.find((v) => v && v.videoID === id) : null;
     if (!entry || !Array.isArray(entry.segments)) return [];
     const wanted = entry.segments
       .filter((s) => cfg[s.category] === true && (s.actionType || 'skip') === 'skip')
@@ -182,11 +196,39 @@
       if (prev && s.start <= prev.end + 1) prev.end = Math.max(prev.end, s.end);
       else merged.push({ ...s });
     }
-    return merged.slice(0, MAX_NOTES);
+    return merged.slice(0, MAX_SEGMENTS);
   }
 
-  // ---------- Ablauf ----------
-  try {
+  // ---------- B) Wiedergabe-Meldung: Läuft gerade eine Sponsor-Stelle? ----------
+  function handlePlaybackPing(url) {
+    const q = query(url);
+    const id = q.docid;
+    const cmt = currentTime(q.cmt);
+    if (!ID_RE.test(id || '') || !isFinite(cmt)) return;
+    writeJSON(POS_KEY, { id, cmt, t: Date.now() });
+
+    const store = readJSON(SEGS_KEY);
+    if (!store || store.id !== id || !Array.isArray(store.segs) || !store.segs.length) return;
+    const seg = store.segs.find((s) => cmt >= s.start - 1 && cmt < s.end - 3);
+    if (!seg) return;
+
+    const done = readJSON(NOTIFIED_KEY);
+    const starts = done && done.id === id && Array.isArray(done.starts) ? done.starts : [];
+    if (starts.includes(seg.start)) return;
+    writeJSON(NOTIFIED_KEY, { id, starts: [...starts, seg.start] });
+
+    const rest = Math.max(1, Math.round(seg.end - cmt));
+    $notification.post(
+      `⏭ ${label(seg)} läuft – noch ${rest} s`,
+      '',
+      `Tippen = weiter bei ${fmt(seg.end)}`,
+      { action: 'open-url', url: jumpUrl(id, seg.end) },
+    );
+    status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} gemeldet, während er lief`, 1);
+  }
+
+  // ---------- A) Video wird geöffnet: Sponsor-Stellen holen und merken ----------
+  function handleVideoOpened() {
     let reason = 'Keine Video-Kennung gefunden';
     const id = idFromUrl($request.url) || (() => {
       const b = toBytes($request.body);
@@ -194,14 +236,19 @@
       if (b[0] === 0x1f && b[1] === 0x8b) { reason = 'Anfrage ist komprimiert'; return null; }
       return idFromProtobuf(b);
     })();
-
     if (!id) { status('ohne-video', reason); debug(reason, ''); finish(); return; }
-    if (recentlyNotified(id)) { status('doppelt', 'Video wurde gerade schon gemeldet'); debug('Schon gemeldet', 'Dieses Video wurde in den letzten 15 Minuten schon geprüft.'); finish(); return; }
 
-    const prefix = sha256Hex(id).slice(0, 4);
+    const cached = readJSON(SEGS_KEY);
+    if (cached && cached.id === id && Date.now() - cached.t < CACHE_MS) {
+      debug('Video schon bekannt', cached.segs.length ? `Stellen: ${list(cached.segs)}` : 'Keine Sponsor-Stellen eingetragen.');
+      finish();
+      return;
+    }
+
     const cats = Object.keys(LABELS).filter((k) => cfg[k] === true);
     if (!cats.length) { status('aus', 'Alle Kategorien ausgeschaltet'); finish(); return; }
     status('abfrage', 'Frage SponsorBlock …');
+    const prefix = sha256Hex(id).slice(0, 4);
     const url = `${API}${prefix}?categories=${encodeURIComponent(JSON.stringify(cats))}&actionTypes=${encodeURIComponent('["skip"]')}`;
 
     $httpClient.get({ url, timeout: 4, headers: { 'User-Agent': 'Werbefrei-Sponsor/1.0' } }, (err, resp, data) => {
@@ -212,31 +259,26 @@
           debug('SponsorBlock nicht erreichbar', String(err).slice(0, 120));
           return;
         }
-        if (code === 404 || !data) {
-          remember(id);
+        const segs = code === 404 || !data ? [] : pickSegments(JSON.parse(data), id);
+        writeJSON(SEGS_KEY, { id, t: Date.now(), segs });
+        writeJSON(NOTIFIED_KEY, { id, starts: [] });
+        if (!segs.length) {
           status('keine-daten', 'Für dieses Video ist nichts eingetragen');
           debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
           return;
         }
-        const segments = pickSegments(JSON.parse(data), id);
-        remember(id);
-        if (!segments.length) {
-          status('keine-daten', 'Für dieses Video ist nichts eingetragen');
-          debug('Keine passenden Stellen', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
-          return;
+        status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – Mitteilung kommt, wenn sie läuft`, segs.length);
+        debug('Sponsor-Wächter bereit', `Stellen: ${list(segs)}. Die Mitteilung kommt, wenn eine davon läuft.`);
+        if (cfg.vorschau) {
+          for (const s of segs.slice(0, 3)) {
+            $notification.post(
+              `⏭ ${label(s)} bei ${fmt(s.start)}`,
+              '',
+              `${fmt(s.start)}–${fmt(s.end)} (${Math.round(s.end - s.start)} s) · Tippen = weiter bei ${fmt(s.end)}`,
+              { action: 'open-url', url: jumpUrl(id, s.end) },
+            );
+          }
         }
-        for (const s of segments) {
-          const label = LABELS[s.category] || 'Sponsor';
-          const len = Math.round(s.end - s.start);
-          const link = jumpUrl(id, s.end);
-          $notification.post(
-            `⏭ ${label} bei ${fmt(s.start)}`,
-            '',
-            `${fmt(s.start)}–${fmt(s.end)} (${len} s) · Tippen = weiter bei ${fmt(s.end)}`,
-            { action: 'open-url', url: link },
-          );
-        }
-        status('gemeldet', segments.length === 1 ? '1 Stelle gemeldet' : `${segments.length} Stellen gemeldet`, segments.length);
       } catch (e) {
         status('fehler', String(e && e.message ? e.message : e).slice(0, 80));
         debug('Fehler', String(e && e.message ? e.message : e));
@@ -244,6 +286,16 @@
         finish();
       }
     });
+  }
+
+  // ---------- Ablauf ----------
+  try {
+    if (/\/api\/stats\/(watchtime|qoe)\b/.test($request.url || '')) {
+      handlePlaybackPing($request.url);
+      finish();
+    } else {
+      handleVideoOpened();
+    }
   } catch (e) {
     debug('Fehler', String(e && e.message ? e.message : e));
     finish();

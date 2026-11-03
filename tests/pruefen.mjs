@@ -14,7 +14,7 @@ import vm from "node:vm";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const RAW_BASE = "https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/";
-const ERLAUBTE_MITM_HOSTS = new Set(["*.googlevideo.com", "youtubei.googleapis.com"]);
+const ERLAUBTE_MITM_HOSTS = new Set(["*.googlevideo.com", "youtubei.googleapis.com", "s.youtube.com", "www.youtube.com"]);
 // Die einzige URL im Skript ist ein Doku-Link in einer Fehlermeldung der protobuf-Bibliothek.
 const ERLAUBTE_URLS_IM_SKRIPT = new Set([
   "https://github.com/timostamm/protobuf-ts/blob/v1.0.8/MANUAL.md#bigint-support",

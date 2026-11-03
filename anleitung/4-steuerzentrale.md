@@ -79,14 +79,19 @@ Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschl�
 
 ## Sponsor-Hinweise (Werbung der Influencer im Video)
 
-Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen Nutzer weltweit ein, von wann bis wann das passiert.
+Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen Nutzer weltweit ein, von wann bis wann das passiert. Der **Sponsor-Wächter** nutzt das:
 
-1. In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen. Surge fragt nach, bestätigen.
-2. Den Schalter **Sponsor-Hinweise** einschalten.
-3. Ein Video öffnen. Kennt SponsorBlock Stellen darin, kommt eine Mitteilung wie *„⏭ Sponsor bei 1:12 · 1:12–2:05 (53 s) · Tippen = weiter bei 2:05“*.
-4. Wenn die Stelle läuft: Mitteilungszentrale von oben herunterziehen und die Mitteilung antippen. YouTube springt dahinter.
+1. **Beim Öffnen eines Videos** holt er die eingetragenen Stellen. An SponsorBlock gehen dabei nur 4 Zeichen eines Hashes der Video-Kennung.
+2. **Während das Video läuft**, meldet die YouTube-App etwa alle 10 Sekunden ihre Position an YouTube. Der Wächter liest diese Meldung nur mit.
+3. **Läuft gerade eine Sponsor-Stelle**, kommt sofort eine Mitteilung: *„⏭ Sponsor läuft – noch 46 s · Tippen = weiter bei 2:06“*. Tippst du direkt auf das Banner, springt YouTube dahinter.
+
+Einrichten:
+- In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen (oder später **Werkzeuge → Sponsor-Hinweise prüfen → Skript neu laden**), dann den Schalter einschalten.
+- Surge muss Mitteilungen senden dürfen: In Surge auf der Startseite (Tab *General*, ganz unten) Mitteilungen erlauben.
+
+Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuellen Video und die letzte gemeldete Position. Steht bei „Positions-Meldungen“ nach ein paar Sekunden Video noch „keine“, liest Surge nicht mit. Dann **Skript neu laden** und YouTube neu öffnen.
 
 Gut zu wissen:
 - Es klappt nur bei Videos, die schon jemand eingetragen hat. Bei großen Kanälen ist das meist der Fall.
-- An SponsorBlock gehen nur 4 Zeichen eines Hashes der Video-Kennung, nicht das Video selbst.
-- In Surge kannst du beim Modul unter *Argumente* einstellen, was gemeldet wird (Sponsor, Eigenwerbung, Abo-Aufruf). Mit **Testmodus** kommt auch eine Mitteilung, wenn nichts gefunden wurde. Das ist praktisch zum Ausprobieren.
+- Die Mitteilung kann bis zu etwa 10 Sekunden nach Beginn der Stelle kommen, weil die App ihre Position nur alle paar Sekunden meldet.
+- Ein automatisches Überspringen ohne Antippen geht in der offiziellen YouTube-App nicht. Dafür bräuchte es eine umgebaute App, und bei uYouEnhanced ist diese Funktion seit August 2026 wegen Abstürzen abgeschaltet.

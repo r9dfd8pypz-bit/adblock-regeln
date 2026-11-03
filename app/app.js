@@ -17,6 +17,8 @@
   const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';
   const SPONSOR_STATUS_KEY = 'werbefrei.sponsor.status';
   const SPONSOR_DEBUG_KEY = 'werbefrei.sponsor.debug';
+  const SPONSOR_SEGS_KEY = 'werbefrei.sponsor.segments';
+  const SPONSOR_POS_KEY = 'werbefrei.sponsor.pos';
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -126,7 +128,9 @@
         const m = /write\("(true|false)"/.exec(code);
         if (m) { s.sponsorDebug = m[1]; save(); }
         return { result: {
-          status: JSON.stringify({ t: Date.now() - 90000, v: 2, step: 'gemeldet', text: '2 Stellen gemeldet', count: 2 }),
+          status: JSON.stringify({ t: Date.now() - 90000, v: 3, step: 'gemeldet', text: 'Sponsor bei 1:13 gemeldet, während er lief', count: 1 }),
+          segs: JSON.stringify({ id: 'demo', t: Date.now() - 120000, segs: [{ start: 73, end: 126, category: 'sponsor' }] }),
+          pos: JSON.stringify({ id: 'demo', cmt: 131, t: Date.now() - 6000 }),
           debug: s.sponsorDebug || 'false',
         } };
       },
@@ -475,6 +479,8 @@
     const yt = reqs.filter((r) => /youtubei\.googleapis\.com/.test(r.URL || ''));
     const decrypted = yt.filter((r) => /^https?:\/\/youtubei\.googleapis\.com\//.test(r.URL));
     const scripted = decrypted.filter((r) => r.modified || (r.notes || []).some((n) => /script|youtube\.response/i.test(n)));
+    const stats = reqs.filter((r) => /youtube\.com(:443|\/api\/stats\/(watchtime|qoe))/.test(r.URL || ''));
+    const statsRead = stats.filter((r) => /\/api\/stats\/(watchtime|qoe)/.test(r.URL || ''));
     const video = reqs.filter((r) => /googlevideo\.com/.test(r.URL || ''));
     const init = video.filter((r) => /\/initplayback/.test(r.URL || ''));
     const initLocal = init.filter((r) => r.modified || (r.notes || []).some((n) => /map local|mock/i.test(n)));
@@ -492,6 +498,7 @@
       mitm: st.mitm, scripting: st.scripting,
       total: reqs.length, yt: yt.length, decrypted: decrypted.length, scripted: scripted.length,
       video: video.length, init: init.length, initLocal: initLocal.length,
+      stats: stats.length, statsRead: statsRead.length,
       notes: notes.slice(0, 10),
       samples: yt.slice(0, 5).map((r) => `${shortUrl(r.URL)} · ${r.rule || '?'} · ${r.policyName || '?'}${r.failed ? ' · FEHLER' : ''}`),
     };
@@ -518,6 +525,7 @@
       `Letzte Anfragen gesamt: ${a.total}`,
       `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted}`,
       `Video-Server: ${a.video} · initplayback: ${a.init} · davon lokal beantwortet: ${a.initLocal}`,
+      `Positions-Meldungen: ${a.statsRead} mitgelesen (Verbindungen zu youtube.com: ${a.stats})`,
       a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : 'Hinweise von Surge: keine',
       a.samples.length ? `Beispiele:\n${a.samples.map((s) => `  - ${s}`).join('\n')}` : '',
     ].filter(Boolean).join('\n');
@@ -546,12 +554,32 @@
 
   // ---------- Sponsor-Hinweise prüfen ----------
   async function readSponsor() {
-    const code = `$done({ status: $persistentStore.read(${JSON.stringify(SPONSOR_STATUS_KEY)}), debug: $persistentStore.read(${JSON.stringify(SPONSOR_DEBUG_KEY)}) });`;
+    const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
+    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)} });`;
     const res = await backend.evaluate(code);
     const r = (res && res.result) || {};
-    let last = null;
-    try { last = r.status ? JSON.parse(r.status) : null; } catch { last = null; }
-    return { last, debug: r.debug === 'true' };
+    const parse = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
+    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos) };
+  }
+  const mmss = (sec) => {
+    const s = Math.max(0, Math.round(sec));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const r = String(s % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
+  };
+  const ago = (t) => {
+    const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    return s < 90 ? `vor ${s} s` : s < 5400 ? `vor ${Math.round(s / 60)} min` : `um ${new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+  };
+  function describeSegments(sp) {
+    if (!sp || !sp.segs) return 'Noch kein Video geöffnet';
+    if (!sp.segs.segs || !sp.segs.segs.length) return 'Keine bei SponsorBlock eingetragen';
+    return sp.segs.segs.map((s) => `${mmss(s.start)}–${mmss(s.end)}`).join(' · ');
+  }
+  function describePosition(sp) {
+    if (!sp || !sp.pos) return 'Noch keine – ein Video ein paar Sekunden laufen lassen';
+    return `Zuletzt bei ${mmss(sp.pos.cmt)} im Video, ${ago(sp.pos.t)}`;
   }
   function describeSponsor(sp) {
     if (!sp || !sp.last) return 'Noch kein Video geprüft';
@@ -584,6 +612,8 @@
     try {
       state.sponsor = await readSponsor();
       $('sp-last').textContent = `${describeSponsor(state.sponsor)} ${stand()}`;
+      $('sp-segs').textContent = describeSegments(state.sponsor);
+      $('sp-pos').textContent = describePosition(state.sponsor);
       $('sp-debug').checked = state.sponsor.debug;
     } catch (e) {
       $('sp-last').textContent = `Nicht lesbar: ${errorText(e)} ${stand()}`;

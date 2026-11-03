@@ -21,7 +21,11 @@ function ok(cond, text) {
 
 // ---------- Nachgebaute Surge-Schnittstelle ----------
 const surge = { enabled: [MODULE], available: [MODULE, 'Anderes Modul'], mitm: true, scripting: true, calls: [], notes: [],
-  store: new Map([['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })]]) };
+  store: new Map([
+    ['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })],
+    ['werbefrei.sponsor.segments', JSON.stringify({ id: 'abc', t: Date.now(), segs: [{ start: 73, end: 126.4, category: 'sponsor' }] })],
+    ['werbefrei.sponsor.pos', JSON.stringify({ id: 'abc', cmt: 80.2, t: Date.now() - 5000 })],
+  ]) };
 function surgeHandler(req, res) {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -144,6 +148,8 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(await page.isVisible('#dlg-sponsor'), 'Prüf-Seite für Sponsor-Hinweise öffnet sich');
   await page.waitForFunction(() => document.getElementById('sp-module').textContent === 'an');
   ok((await page.textContent('#sp-last')).includes('nichts eingetragen'), 'Prüf-Seite zeigt das letzte Ergebnis');
+  ok(await page.textContent('#sp-segs') === '1:13–2:06', 'Prüf-Seite zeigt die Stellen im Video');
+  ok(/^Zuletzt bei 1:20 im Video, vor [3-9] s$/.test(await page.textContent('#sp-pos')), `Prüf-Seite zeigt die letzte Position: ${await page.textContent('#sp-pos')}`);
   await page.click('label[for="sp-debug"]');
   await page.waitForFunction(() => true);
   await page.waitForTimeout(300);

@@ -42,7 +42,7 @@ Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/ap
 
 ## Sicherheitsregeln
 
-- Surge entschlüsselt nur `youtubei.googleapis.com` und `*.googlevideo.com`. Banking, Apple, Gesundheit und alles andere bleiben unberührt. `tests/pruefen.mjs` prüft das automatisch.
+- Surge entschlüsselt nur YouTube-Adressen: `youtubei.googleapis.com` und `*.googlevideo.com` (Werbefilter), dazu `s.youtube.com` und `www.youtube.com`, falls die Sponsor-Hinweise an sind. Bei diesen beiden liest das Skript nur die Wiedergabe-Position mit. Banking, Apple, Gesundheit und alles andere bleiben unberührt. `tests/pruefen.mjs` prüft das automatisch.
 - Das YouTube-Skript liegt als **geprüfte, feste Kopie** in diesem Repo, siehe [scripts/youtube/HERKUNFT.md](scripts/youtube/HERKUNFT.md). Der Teil des Originals, der Daten an einen fremden Server schickt, ist entfernt.
 - Das Surge-Zertifikat wird auf deinem iPhone erzeugt und bleibt dort. Exportiere oder teile es nie.
 - Aufhören geht jederzeit: Surge löschen und das Zertifikat entfernen unter Einstellungen → Allgemein → VPN und Geräteverwaltung.
@@ -51,7 +51,7 @@ Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/ap
 
 ```
 modules/youtube-werbefrei.sgmodule   Surge-Modul gegen YouTube-Werbung (das abonniert Surge)
-modules/youtube-sponsor-hinweise.sgmodule  Optional: Mitteilung bei Influencer-Werbung (SponsorBlock)
+modules/youtube-sponsor-hinweise.sgmodule  Optional: Sponsor-Wächter, meldet Influencer-Werbung, während sie läuft (SponsorBlock)
 scripts/youtube/sponsor-hinweise.js  Eigenes Skript dazu
 scripts/youtube/youtube.response.js  YouTube-Skript (Apache-2.0, von Maasea/sgmodule)
 scripts/youtube/HERKUNFT.md          Herkunft und Prüfbericht des Skripts

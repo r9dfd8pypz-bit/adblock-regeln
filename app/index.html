@@ -192,6 +192,8 @@
     <ul class="list">
       <li class="row"><span class="row-text"><strong>Modul</strong></span><span class="value" id="sp-module">–</span></li>
       <li class="row"><span class="row-text"><strong>Letztes Video</strong><small id="sp-last">–</small></span></li>
+      <li class="row"><span class="row-text"><strong>Stellen im Video</strong><small id="sp-segs">–</small></span></li>
+      <li class="row"><span class="row-text"><strong>Positions-Meldungen</strong><small id="sp-pos">–</small></span></li>
       <li class="row">
         <label class="row-text" for="sp-debug"><strong>Testmodus</strong><small>Mitteilung auch, wenn nichts gefunden wurde</small></label>
         <input id="sp-debug" type="checkbox" class="toggle">
@@ -206,7 +208,8 @@
     <ol class="list text-list">
       <li>Auf <strong>Testmitteilung senden</strong> tippen. Kommt keine Mitteilung: Surge öffnen → Home → Tab <strong>General</strong> → ganz nach unten zum Kärtchen „Surge may use notifications…“ → antippen → <strong>Erlauben</strong>. Danach steht Surge auch unter Einstellungen → Mitteilungen.</li>
       <li><strong>Testmodus</strong> oben einschalten.</li>
-      <li>YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video starten. Im Testmodus kommt jetzt bei jedem Video eine Mitteilung mit dem Ergebnis.</li>
+      <li>YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video starten. Im Testmodus kommt beim Öffnen eine Mitteilung, ob Stellen bekannt sind.</li>
+      <li>Das Video ein paar Sekunden laufen lassen. Kommt eine bekannte Stelle, erscheint <strong>während sie läuft</strong> „⏭ Sponsor läuft – noch … s“. Antippen springt dahinter.</li>
       <li>Hier auf <strong>Aktualisieren</strong> tippen. Unter „Letztes Video“ steht, was passiert ist.</li>
     </ol>
     <h3 class="section-header">Was die Meldungen bedeuten</h3>
@@ -214,6 +217,7 @@
       <div><dt>Noch kein Video geprüft</dt><dd>Surge nutzt vermutlich noch eine alte Fassung des Skripts. Auf <strong>Skript neu laden</strong> tippen, dann YouTube ganz schließen, neu öffnen und ein Video starten. Hilft das nicht: Ist das Modul oben „an“?</dd></div>
       <div><dt>Für dieses Video ist nichts eingetragen</dt><dd>Alles funktioniert, nur kennt SponsorBlock dieses Video nicht. Ein Video eines großen Kanals ausprobieren.</dd></div>
       <div><dt>SponsorBlock nicht erreichbar</dt><dd>Eventuell sperrt NextDNS die Adresse sponsor.ajay.app. In den NextDNS-Logs nachsehen und freigeben.</dd></div>
+      <div><dt>Positions-Meldungen: noch keine</dt><dd>Surge liest die Wiedergabe noch nicht mit. Auf <strong>Skript neu laden</strong> tippen (lädt auch das Modul neu), dann YouTube ganz schließen und neu öffnen.</dd></div>
       <div><dt>Keine Video-Kennung gefunden</dt><dd>YouTube hat etwas geändert. Schick mir einen Screenshot.</dd></div>
     </dl>
   </div>
