@@ -13,7 +13,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 6; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 7; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
@@ -283,6 +283,8 @@
     if (!ID_RE.test(id || '') && bytes && bytes.length && !text) id = idFromProtobuf(bytes);
     const rawCmt = all.cmt !== undefined ? all.cmt : all.cmt_s;
     let cmt = currentTime(rawCmt);
+    // watchtime hat kein cmt, aber et = Ende des zuletzt gesehenen Abschnitts (≈ aktuelle Position).
+    if (!isFinite(cmt) && all.et !== undefined) cmt = currentTime(all.et);
     if (!isFinite(cmt) && kind === 'playback') cmt = 0; // Start-Meldung ohne Position = Anfang des Videos
 
     recordPing({
@@ -292,15 +294,18 @@
       url: Object.keys(q).sort().join(','),
       body: !bytes || !bytes.length ? 'leer' : text ? `Text ${bytes.length} B: ${Object.keys(fromBody).sort().join(',')}` : `binär ${bytes.length} B`,
       id: ID_RE.test(id || '') ? 'ja' : 'nein',
-      cmt: shape(rawCmt),
+      cmt: rawCmt !== undefined ? shape(rawCmt) : all.et !== undefined ? `et ${shape(all.et)}` : 'fehlt',
     });
 
     if (!ID_RE.test(id || '')) { finish(); return; }
+    // Abstand zur letzten Meldung = wie oft die App meldet (für die Vorschau „beginnt gleich“).
+    const prev = readJSON(POS_KEY);
+    const gap = prev && prev.id === id && Date.now() - prev.t < 120000 ? (Date.now() - prev.t) / 1000 : 10;
     if (isFinite(cmt)) writeJSON(POS_KEY, { id, cmt, t: Date.now() });
 
     const store = readJSON(SEGS_KEY);
     if (store && store.id === id && Date.now() - store.t < CACHE_MS) {
-      if (isFinite(cmt)) checkPosition(id, cmt, store.segs);
+      if (isFinite(cmt)) checkPosition(id, cmt, store.segs, gap);
       finish();
       return;
     }
@@ -309,7 +314,7 @@
       try {
         if (segs && segs.length) {
           status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – Mitteilung kommt, wenn sie läuft`, segs.length);
-          if (isFinite(cmt)) checkPosition(id, cmt, segs);
+          if (isFinite(cmt)) checkPosition(id, cmt, segs, gap);
         } else if (segs) {
           status('keine-daten', 'Für dieses Video ist nichts eingetragen');
           debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
@@ -320,9 +325,12 @@
     });
   }
 
-  function checkPosition(id, cmt, segs) {
+  // Meldet eine Stelle, wenn sie läuft – oder schon, wenn sie vor der nächsten erwarteten
+  // Meldung beginnt (gap = Sekunden zwischen den Meldungen, höchstens 15 s Vorlauf).
+  function checkPosition(id, cmt, segs, gap) {
     if (!Array.isArray(segs) || !segs.length) return;
-    const seg = segs.find((s) => cmt >= s.start - 1 && cmt < s.end - 3);
+    const lead = Math.min(15, Math.max(4, gap || 10));
+    const seg = segs.find((x) => cmt < x.end - 3 && cmt >= x.start - lead);
     if (!seg) return;
 
     const done = readJSON(NOTIFIED_KEY);
@@ -330,14 +338,25 @@
     if (starts.includes(seg.start)) return;
     writeJSON(NOTIFIED_KEY, { id, starts: [...starts, seg.start] });
 
-    const rest = Math.max(1, Math.round(seg.end - cmt));
-    $notification.post(
-      `⏭ ${label(seg)} läuft – noch ${rest} s`,
-      '',
-      `Tippen = weiter bei ${fmt(seg.end)}`,
-      { action: 'open-url', url: jumpUrl(id, seg.end) },
-    );
-    status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} gemeldet, während er lief`, 1);
+    const len = Math.round(seg.end - seg.start);
+    if (cmt < seg.start) {
+      $notification.post(
+        `⏭ ${label(seg)} beginnt gleich (bei ${fmt(seg.start)})`,
+        '',
+        `${len} s lang · Tippen, wenn er beginnt = weiter bei ${fmt(seg.end)}`,
+        { action: 'open-url', url: jumpUrl(id, seg.end) },
+      );
+      status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} vorab gemeldet (Position ${fmt(cmt)})`, 1);
+    } else {
+      const rest = Math.max(1, Math.round(seg.end - cmt));
+      $notification.post(
+        `⏭ ${label(seg)} läuft – noch ${rest} s`,
+        '',
+        `Tippen = weiter bei ${fmt(seg.end)}`,
+        { action: 'open-url', url: jumpUrl(id, seg.end) },
+      );
+      status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} gemeldet bei Position ${fmt(cmt)}`, 1);
+    }
   }
 
   // ---------- A) Video wird geöffnet: Sponsor-Stellen holen und merken ----------

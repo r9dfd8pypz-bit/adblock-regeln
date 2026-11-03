@@ -80,8 +80,8 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 6 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
-  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 6, 'Hinterlässt einen Zeitstempel für „Video-Start“');
+  ok(st.step === 'bereit' && st.v === 7 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 7, 'Hinterlässt einen Zeitstempel für „Video-Start“');
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
@@ -158,6 +158,31 @@ const segStore = () => new Map([
   const r = await run({ url: 'https://youtubei.googleapis.com/youtubei/v1/get_watch?prettyPrint=false', body: getWatch, reply: reply200 });
   ok(r.calls.length === 0 && r.doneCount === 1 && r.ms < 100, 'get_watch: Video erkannt, Start wird nicht verzögert');
   ok(json(r.store, 'werbefrei.sponsor.status').step === 'erkannt', 'get_watch: verschachtelte Video-Kennung gefunden');
+}
+
+// ---------- watchtime ohne cmt: Position aus et ----------
+{
+  const s6 = segStore();
+  const url = `https://s.youtube.com/api/stats/watchtime?ns=yt&docid=${ID}&st=70.1,75.0&et=75.0,85.3&state=playing`;
+  const r = await run({ url, store: s6 });
+  ok(json(s6, 'werbefrei.sponsor.pos').cmt === 85.3, 'watchtime: Position aus „et“');
+  ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor läuft – noch 41 s', `watchtime löst die Mitteilung aus: ${r.notes[0] && r.notes[0][0]}`);
+}
+
+// ---------- Vorab-Meldung, wenn der Sponsor vor der nächsten Meldung beginnt ----------
+{
+  const s7 = segStore();
+  s7.set('werbefrei.sponsor.pos', JSON.stringify({ id: ID, cmt: 55, t: Date.now() - 10000 })); // Meldungen alle ~10 s
+  const early = await run({ url: ping(ID, '64.0'), store: s7 });
+  ok(early.notes.length === 1 && early.notes[0][0] === '⏭ Sponsor beginnt gleich (bei 1:13)', `Vorab-Meldung: ${early.notes[0] && early.notes[0][0]}`);
+  ok(early.notes[0] && early.notes[0][2] === '54 s lang · Tippen, wenn er beginnt = weiter bei 2:06', 'Vorab-Text erklärt, wann man tippt');
+  const later = await run({ url: ping(ID, '80.0'), store: s7 });
+  ok(later.notes.length === 0, 'Danach keine zweite Mitteilung für dieselbe Stelle');
+
+  const s8 = segStore();
+  s8.set('werbefrei.sponsor.pos', JSON.stringify({ id: ID, cmt: 40, t: Date.now() - 10000 }));
+  const tooEarly = await run({ url: ping(ID, '50.0'), store: s8 });
+  ok(tooEarly.notes.length === 0, 'Zu früh (über 10 s vorher): noch keine Mitteilung');
 }
 
 // ---------- Vorschau beim Start ----------

@@ -93,5 +93,5 @@ Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuell
 
 Gut zu wissen:
 - Es klappt nur bei Videos, die schon jemand eingetragen hat. Bei großen Kanälen ist das meist der Fall.
-- Die Mitteilung kann bis zu etwa 10 Sekunden nach Beginn der Stelle kommen, weil die App ihre Position nur alle paar Sekunden meldet.
+- Die App meldet ihre Position nur alle paar Sekunden. Beginnt der Sponsor vor der nächsten Meldung, kommt die Mitteilung kurz vorher („⏭ Sponsor beginnt gleich“), dann tippst du, sobald er beginnt. Sonst kommt sie, während er läuft.
 - Ein automatisches Überspringen ohne Antippen geht in der offiziellen YouTube-App nicht. Dafür bräuchte es eine umgebaute App, und bei uYouEnhanced ist diese Funktion seit August 2026 wegen Abstürzen abgeschaltet.
