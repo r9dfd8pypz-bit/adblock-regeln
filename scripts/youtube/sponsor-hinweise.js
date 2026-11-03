@@ -13,13 +13,14 @@
 (() => {
   'use strict';
 
-  const VERSION = 4; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 5; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
   const NOTIFIED_KEY = 'werbefrei.sponsor.notified'; // { id, starts } schon gemeldete Stellen
   const STATUS_KEY = 'werbefrei.sponsor.status';     // letzter Ablauf, liest die Werbefrei-App
   const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
+  const RUNS_KEY = 'werbefrei.sponsor.runs';         // { next, ping, v } wann das Skript zuletzt lief
   const CACHE_MS = 30 * 60 * 1000;
   const PING_FRESH_MS = 3 * 24 * 60 * 60 * 1000; // so lange gelten Positions-Meldungen als „funktionieren“
   const TIMEOUT_MS = 4500;
@@ -200,17 +201,66 @@
     return merged.slice(0, MAX_SEGMENTS);
   }
 
+  // Fragt SponsorBlock nach den Stellen eines Videos. cb(segs) – segs ist null bei Fehler.
+  function fetchSegments(id, cb) {
+    const cats = Object.keys(LABELS).filter((k) => cfg[k] === true);
+    if (!cats.length) { status('aus', 'Alle Kategorien ausgeschaltet'); cb(null); return; }
+    status('abfrage', 'Frage SponsorBlock …');
+    const prefix = sha256Hex(id).slice(0, 4);
+    const url = `${API}${prefix}?categories=${encodeURIComponent(JSON.stringify(cats))}&actionTypes=${encodeURIComponent('["skip"]')}`;
+    $httpClient.get({ url, timeout: 4, headers: { 'User-Agent': 'Werbefrei-Sponsor/1.0' } }, (err, resp, data) => {
+      try {
+        if (err) {
+          status('fehler', `SponsorBlock nicht erreichbar: ${String(err).slice(0, 80)}`);
+          debug('SponsorBlock nicht erreichbar', String(err).slice(0, 120));
+          cb(null);
+          return;
+        }
+        const code = resp && (resp.status || resp.statusCode);
+        const segs = code === 404 || !data ? [] : pickSegments(JSON.parse(data), id);
+        writeJSON(SEGS_KEY, { id, t: Date.now(), segs });
+        writeJSON(NOTIFIED_KEY, { id, starts: [] });
+        cb(segs);
+      } catch (e) {
+        status('fehler', String(e && e.message ? e.message : e).slice(0, 80));
+        cb(null);
+      }
+    });
+  }
+
   // ---------- B) Wiedergabe-Meldung: Läuft gerade eine Sponsor-Stelle? ----------
   function handlePlaybackPing(url) {
     const q = query(url);
     const id = q.docid;
     const cmt = currentTime(q.cmt);
-    if (!ID_RE.test(id || '') || !isFinite(cmt)) return;
+    if (!ID_RE.test(id || '') || !isFinite(cmt)) { finish(); return; }
     writeJSON(POS_KEY, { id, cmt, t: Date.now() });
 
     const store = readJSON(SEGS_KEY);
-    if (!store || store.id !== id || !Array.isArray(store.segs) || !store.segs.length) return;
-    const seg = store.segs.find((s) => cmt >= s.start - 1 && cmt < s.end - 3);
+    if (store && store.id === id && Date.now() - store.t < CACHE_MS) {
+      checkPosition(id, cmt, store.segs);
+      finish();
+      return;
+    }
+    // Neues Video (z. B. weil die Anfrage beim Videostart nicht erkannt wurde): Stellen jetzt holen.
+    fetchSegments(id, (segs) => {
+      try {
+        if (segs && segs.length) {
+          status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – geholt während der Wiedergabe`, segs.length);
+          checkPosition(id, cmt, segs);
+        } else if (segs) {
+          status('keine-daten', 'Für dieses Video ist nichts eingetragen');
+          debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
+        }
+      } finally {
+        finish();
+      }
+    });
+  }
+
+  function checkPosition(id, cmt, segs) {
+    if (!Array.isArray(segs) || !segs.length) return;
+    const seg = segs.find((s) => cmt >= s.start - 1 && cmt < s.end - 3);
     if (!seg) return;
 
     const done = readJSON(NOTIFIED_KEY);
@@ -246,23 +296,9 @@
       return;
     }
 
-    const cats = Object.keys(LABELS).filter((k) => cfg[k] === true);
-    if (!cats.length) { status('aus', 'Alle Kategorien ausgeschaltet'); finish(); return; }
-    status('abfrage', 'Frage SponsorBlock …');
-    const prefix = sha256Hex(id).slice(0, 4);
-    const url = `${API}${prefix}?categories=${encodeURIComponent(JSON.stringify(cats))}&actionTypes=${encodeURIComponent('["skip"]')}`;
-
-    $httpClient.get({ url, timeout: 4, headers: { 'User-Agent': 'Werbefrei-Sponsor/1.0' } }, (err, resp, data) => {
+    fetchSegments(id, (segs) => {
       try {
-        const code = resp && (resp.status || resp.statusCode);
-        if (err) {
-          status('fehler', `SponsorBlock nicht erreichbar: ${String(err).slice(0, 80)}`);
-          debug('SponsorBlock nicht erreichbar', String(err).slice(0, 120));
-          return;
-        }
-        const segs = code === 404 || !data ? [] : pickSegments(JSON.parse(data), id);
-        writeJSON(SEGS_KEY, { id, t: Date.now(), segs });
-        writeJSON(NOTIFIED_KEY, { id, starts: [] });
+        if (!segs) return;
         if (!segs.length) {
           status('keine-daten', 'Für dieses Video ist nichts eingetragen');
           debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
@@ -300,9 +336,13 @@
 
   // ---------- Ablauf ----------
   try {
-    if (/\/api\/stats\/(watchtime|qoe)\b/.test($request.url || '')) {
+    const isPing = /\/api\/stats\/(watchtime|qoe)\b/.test($request.url || '');
+    const runs = readJSON(RUNS_KEY) || {};
+    runs[isPing ? 'ping' : 'next'] = Date.now();
+    runs.v = VERSION;
+    writeJSON(RUNS_KEY, runs);
+    if (isPing) {
       handlePlaybackPing($request.url);
-      finish();
     } else {
       handleVideoOpened();
     }

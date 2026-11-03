@@ -19,6 +19,7 @@
   const SPONSOR_DEBUG_KEY = 'werbefrei.sponsor.debug';
   const SPONSOR_SEGS_KEY = 'werbefrei.sponsor.segments';
   const SPONSOR_POS_KEY = 'werbefrei.sponsor.pos';
+  const SPONSOR_RUNS_KEY = 'werbefrei.sponsor.runs';
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -87,6 +88,8 @@
       recentRequests: () => call('/requests/recent'),
       // Führt ein kleines Skript in Surge aus (für Status, Testmodus, Testmitteilung).
       evaluate: (code) => call('/scripting/evaluate', 'POST', { script_text: code, mock_type: 'cron', timeout: 5 }, 8000),
+      scriptingList: () => call('/scripting'),
+      events: () => call('/events'),
       // Lädt Module und Skripte neu aus dem Internet (Surge iOS 5.23+).
       updateResources: () => call('/external_resources/update', 'POST', { key: 'all' }, 60000),
     };
@@ -123,6 +126,8 @@
         ] };
       },
       async updateResources() { await wait(); return { all: 'success' }; },
+      async scriptingList() { await wait(); return { scripts: [{ name: 'youtube.response', type: 'http-response', path: '' }, { name: 'youtube.sponsor', type: 'http-request', path: '' }, { name: 'youtube.sponsor.position', type: 'http-request', path: '' }] }; },
+      async events() { await wait(); return { events: [] }; },
       async evaluate(code) {
         await wait();
         const m = /write\("(true|false)"/.exec(code);
@@ -555,11 +560,11 @@
   // ---------- Sponsor-Hinweise prüfen ----------
   async function readSponsor() {
     const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
-    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)} });`;
+    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)} });`;
     const res = await backend.evaluate(code);
     const r = (res && res.result) || {};
     const parse = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
-    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos) };
+    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs) };
   }
   const mmss = (sec) => {
     const s = Math.max(0, Math.round(sec));
@@ -586,6 +591,44 @@
     const time = new Date(sp.last.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     return `Zuletzt ${time}: ${sp.last.text}${sp.last.v ? ` · Skript v${sp.last.v}` : ''}`;
   }
+  // Röntgenblick: Was hat Surge wirklich geladen, und was ist zuletzt passiert?
+  async function xray() {
+    const [scr, rec, ev] = await Promise.allSettled([backend.scriptingList(), backend.recentRequests(), backend.events()]);
+    const names = scr.status === 'fulfilled' && scr.value && Array.isArray(scr.value.scripts) ? scr.value.scripts.map((x) => x.name) : null;
+    const reqs = rec.status === 'fulfilled' && rec.value && Array.isArray(rec.value.requests) ? rec.value.requests : [];
+    const url = (r) => String(r.URL || '');
+    const statsRead = reqs.filter((r) => /\/api\/stats\/(watchtime|qoe)/.test(url(r))).length;
+    const statsTunnel = reqs.filter((r) => /^(https?:\/\/)?(s|www)\.youtube\.com(:443)?\/?$/.test(url(r))).length;
+    const nextReqs = reqs.filter((r) => /\/youtubei\/v1\/next/.test(url(r)));
+    const nextNotes = [...new Set(nextReqs.flatMap((r) => r.notes || []))].filter((n) => /script|sponsor/i.test(n)).slice(0, 3);
+    const hosts = [...new Set(reqs.map((r) => url(r).replace(/^https?:\/\//, '').split(/[/?]/)[0]).filter((h) => /youtube|googlevideo|googleapis/.test(h)))].slice(0, 8);
+    const events = ev.status === 'fulfilled' && ev.value && Array.isArray(ev.value.events)
+      ? ev.value.events.map((e) => String(e.content || '')).filter((c) => /sponsor|script|skript|module|modul/i.test(c)).slice(0, 3)
+      : [];
+    return { names, statsRead, statsTunnel, nextCount: nextReqs.length, nextNotes, hosts, events, total: reqs.length };
+  }
+  const loaded = (names, n) => (!names ? 'unbekannt' : names.includes(n) ? 'geladen ✅' : 'fehlt ❌');
+  function describeRuns(sp) {
+    const r = sp && sp.runs;
+    if (!r) return 'Noch nie – das Skript ist bisher nicht angesprungen';
+    const at = (t) => (t ? ago(t) : 'nie');
+    return `Video-Start: ${at(r.next)} · Wiedergabe: ${at(r.ping)} · Skript v${r.v || '?'}`;
+  }
+  let lastSponsorReport = '';
+
+  // Leitet aus dem Röntgenblick eine klare Empfehlung ab.
+  function advise(x, sp, moduleState) {
+    const runs = sp && sp.runs;
+    if (moduleState === 'nicht installiert') return ['bad', 'Modul fehlt', 'Unter YouTube → Sponsor-Hinweise auf „Installieren“ tippen und in Surge bestätigen.'];
+    if (moduleState === 'aus') return ['bad', 'Modul ist aus', 'Den Schalter „Sponsor-Hinweise“ auf der Startseite einschalten.'];
+    if (x.names && !x.names.includes('youtube.sponsor')) return ['bad', 'Surge hat die Regel nicht geladen', 'Oben auf „Skript neu laden“ tippen. Hilft das nicht: In Surge → Modify → Modul „YouTube Sponsor-Hinweise“ nach links wischen → Löschen, dann hier „Modul aktualisieren“.'];
+    if (x.names && !x.names.includes('youtube.sponsor.position')) return ['bad', 'Altes Modul installiert', 'In Surge → Modify → Modul „YouTube Sponsor-Hinweise“ nach links wischen → Löschen. Dann hier auf „Modul aktualisieren“ tippen und in Surge bestätigen.'];
+    if (!runs || (!runs.next && !runs.ping)) return ['bad', 'Skript ist noch nie angesprungen', 'YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video 20 Sekunden laufen lassen. Dann hier „Aktualisieren“. Bleibt es so: Bericht kopieren und an Claude schicken.'];
+    if (!runs.ping) return ['bad', 'Wiedergabe wird nicht mitgelesen', 'Das Video läuft, aber Surge sieht keine Positions-Meldungen. Bericht kopieren und an Claude schicken.'];
+    if (sp && sp.segs && sp.segs.segs && !sp.segs.segs.length) return ['ok', 'Alles läuft', 'Nur für das letzte Video ist bei SponsorBlock nichts eingetragen. Ein Video eines großen Kanals mit Sponsor ausprobieren.'];
+    return ['ok', 'Alles läuft', 'Kommt eine bekannte Stelle, erscheint die Mitteilung während sie läuft. Kommt trotzdem keine: Bericht kopieren und an Claude schicken.'];
+  }
+
   // Holt Module und Skripte frisch aus dem Repo und lädt das Profil neu.
   async function updateRulesAndScripts() {
     let summary = '';
@@ -614,14 +657,44 @@
       $('sp-last').textContent = `${describeSponsor(state.sponsor)} ${stand()}`;
       $('sp-segs').textContent = describeSegments(state.sponsor);
       $('sp-pos').textContent = describePosition(state.sponsor);
+      $('sp-r-runs').textContent = describeRuns(state.sponsor);
       $('sp-debug').checked = state.sponsor.debug;
     } catch (e) {
       $('sp-last').textContent = `Nicht lesbar: ${errorText(e)} ${stand()}`;
     }
   }
+  async function fillXray() {
+    for (const id of ['sp-r-next', 'sp-r-pos', 'sp-r-stats', 'sp-r-events']) $(id).textContent = 'Lade …';
+    const x = await xray();
+    $('sp-r-next').textContent = loaded(x.names, 'youtube.sponsor');
+    $('sp-r-pos').textContent = loaded(x.names, 'youtube.sponsor.position');
+    $('sp-r-stats').textContent = `${x.total} Anfragen gesamt · Positions-Meldungen mitgelesen: ${x.statsRead} · nicht entschlüsselt: ${x.statsTunnel} · Video-Start (/next): ${x.nextCount}`;
+    $('sp-r-events').textContent = x.events.length ? x.events.join(' | ') : 'keine Fehler gemeldet';
+    const [level, head, text] = advise(x, state.sponsor, $('sp-module').textContent);
+    const box = $('sp-advice');
+    box.dataset.level = level;
+    box.replaceChildren(Object.assign(document.createElement('strong'), { textContent: head }), document.createTextNode(text));
+    box.hidden = false;
+    const sp = state.sponsor;
+    lastSponsorReport = [
+      `Sponsor-Bericht · ${new Date().toLocaleString('de-DE')}`,
+      `Empfehlung: ${head} – ${text}`,
+      `Modul: ${$('sp-module').textContent}`,
+      `Regel Video-Start: ${$('sp-r-next').textContent} · Regel Wiedergabe: ${$('sp-r-pos').textContent}`,
+      `Alle Skripte: ${x.names ? x.names.join(', ') : 'unbekannt'}`,
+      `Skript lief zuletzt: ${describeRuns(sp)}`,
+      `Letztes Video: ${describeSponsor(sp)}`,
+      `Stellen: ${describeSegments(sp)}`,
+      `Position: ${describePosition(sp)}`,
+      `Anfragen: ${$('sp-r-stats').textContent}`,
+      `Hosts: ${x.hosts.join(', ') || 'keine'}`,
+      `Vermerke bei /next: ${x.nextNotes.join(' | ') || 'keine'}`,
+      `Surge-Meldungen: ${$('sp-r-events').textContent}`,
+    ].join('\n');
+  }
   function openSponsor() {
     $('dlg-sponsor').showModal();
-    fillSponsorSheet();
+    fillSponsorSheet().then(fillXray).catch(() => {});
   }
 
   // ---------- Einrichtungs-Assistent ----------
@@ -732,7 +805,8 @@
         balloon('Hat nicht geklappt', errorText(e), 'bad');
       }
     });
-    $('btn-sp-refresh').addEventListener('click', fillSponsorSheet);
+    $('btn-sp-refresh').addEventListener('click', () => { fillSponsorSheet().then(fillXray).catch(() => {}); });
+    $('btn-sp-report').addEventListener('click', () => { if (lastSponsorReport) copyText(lastSponsorReport); });
     $('btn-sp-update').addEventListener('click', async () => {
       $('btn-sp-update').disabled = true;
       balloon('Lade Skript neu …', 'Das kann ein paar Sekunden dauern.');

@@ -80,13 +80,15 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 4 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(st.step === 'bereit' && st.v === 5 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 5, 'Hinterlässt einen Zeitstempel für „Video-Start“');
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
 // ---------- B) Wiedergabe-Meldungen ----------
 {
   const before = await run({ url: ping(ID, '30.1'), store });
+  ok(json(store, 'werbefrei.sponsor.runs').ping > 0, 'Hinterlässt einen Zeitstempel für „Wiedergabe“');
   ok(before.notes.length === 0 && before.calls.length === 0, 'Vor der Stelle: keine Mitteilung, keine Netzwerkanfrage');
   ok(json(store, 'werbefrei.sponsor.pos').cmt === 30.1, 'Merkt sich die aktuelle Position');
   ok(before.ms < 100, `Wiedergabe-Meldung wird nicht aufgehalten (${before.ms} ms)`);
@@ -114,6 +116,15 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
 
   const reopen = await run({ body: nextRequest(ID), reply: reply200, store });
   ok(reopen.calls.length === 0 && reopen.notes.length === 0, 'Nach dem Sprung (Video neu geöffnet): keine neue Abfrage');
+}
+
+// ---------- Nur Wiedergabe-Meldungen (Video-Start wurde nicht erkannt) ----------
+{
+  const s2 = new Map();
+  const r = await run({ url: ping(ID, '80.2'), store: s2, reply: reply200 });
+  ok(r.calls.length === 1, 'Neues Video in der Wiedergabe-Meldung: holt die Stellen selbst');
+  ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor läuft – noch 46 s', 'Und meldet sofort, wenn gerade ein Sponsor läuft');
+  ok(r.doneCount === 1, 'Wiedergabe-Meldung wird danach unverändert weitergeschickt');
 }
 
 // ---------- Vorschau beim Start ----------

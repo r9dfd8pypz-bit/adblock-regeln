@@ -56,6 +56,8 @@ function surgeHandler(req, res) {
       return send({ enabled: surge[feature[1]] });
     }
     if (url === '/v1/profiles/reload' || url === '/v1/dns/flush') return send({});
+    if (url === '/v1/scripting') return send({ scripts: [{ name: 'youtube.response', type: 'http-response', path: 'x' }, { name: 'youtube.sponsor', type: 'http-request', path: 'y' }] });
+    if (url === '/v1/events') return send({ events: [{ identifier: '1', date: '', type: 1, allowDismiss: 1, content: 'Script youtube.sponsor evaluated' }] });
     if (url === '/v1/external_resources/update') {
       surge.resourceUpdates = (surge.resourceUpdates || 0) + 1;
       return send({ 'https://raw.githubusercontent.com/x/sponsor-hinweise.js': 'success' });
@@ -149,6 +151,10 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.waitForFunction(() => document.getElementById('sp-module').textContent === 'an');
   ok((await page.textContent('#sp-last')).includes('nichts eingetragen'), 'Prüf-Seite zeigt das letzte Ergebnis');
   ok(await page.textContent('#sp-segs') === '1:13–2:06', 'Prüf-Seite zeigt die Stellen im Video');
+  await page.waitForFunction(() => document.getElementById('sp-r-pos').textContent !== 'Lade …');
+  ok(await page.textContent('#sp-r-next') === 'geladen ✅' && await page.textContent('#sp-r-pos') === 'fehlt ❌', 'Röntgenblick erkennt fehlende Wiedergabe-Regel (altes Modul)');
+  ok((await page.textContent('#sp-r-events')).includes('youtube.sponsor'), 'Röntgenblick zeigt Surge-Meldungen');
+  ok((await page.textContent('#sp-advice')).startsWith('Altes Modul installiert'), `Klartext-Empfehlung: ${(await page.textContent('#sp-advice')).slice(0, 40)}`);
   ok(/^Zuletzt bei 1:20 im Video, vor [3-9] s$/.test(await page.textContent('#sp-pos')), `Prüf-Seite zeigt die letzte Position: ${await page.textContent('#sp-pos')}`);
   await page.click('label[for="sp-debug"]');
   await page.waitForFunction(() => true);
