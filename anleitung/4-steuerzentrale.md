@@ -86,10 +86,10 @@ Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen 
 3. **Läuft gerade eine Sponsor-Stelle**, kommt sofort eine Mitteilung: *„⏭ Sponsor läuft – noch 46 s · Tippen = weiter bei 2:06“*. Tippst du direkt auf das Banner, springt YouTube dahinter.
 
 Einrichten:
-- In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen (oder später **Werkzeuge → Sponsor-Hinweise prüfen → Skript neu laden**), dann den Schalter einschalten.
+- In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen, dann den Schalter einschalten. Nach Änderungen am Modul: **Werkzeuge → Sponsor-Hinweise prüfen → Modul aktualisieren** und in Surge bestätigen. „Skript neu laden“ aktualisiert nur das Skript, nicht das Modul.
 - Surge muss Mitteilungen senden dürfen: In Surge auf der Startseite (Tab *General*, ganz unten) Mitteilungen erlauben.
 
-Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuellen Video und die letzte gemeldete Position. Steht bei „Positions-Meldungen“ nach ein paar Sekunden Video noch „keine“, liest Surge nicht mit. Dann **Skript neu laden** und YouTube neu öffnen.
+Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuellen Video und die letzte gemeldete Position. Steht bei „Positions-Meldungen“ nach ein paar Sekunden Video noch „keine“, liest Surge nicht mit. Meist ist dann noch das alte Modul installiert: **Modul aktualisieren**, in Surge bestätigen und YouTube neu öffnen. Bis dahin meldet das Skript die Stellen wie früher beim Videostart.
 
 Gut zu wissen:
 - Es klappt nur bei Videos, die schon jemand eingetragen hat. Bei großen Kanälen ist das meist der Fall.

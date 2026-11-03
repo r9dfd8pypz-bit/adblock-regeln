@@ -85,7 +85,7 @@ const appHosts = new Set([...(appHtml + appJs).matchAll(/https?:\/\/([a-z0-9.-]+
 const fremdeHosts = [...appHosts].filter((h) => !ERLAUBTE_APP_HOSTS.has(h));
 ok(fremdeHosts.length === 0, `App spricht nur mit Surge, NextDNS, GitHub und App Store ${fremdeHosts.join(" ")}`);
 ok(/surge:\/\/\/\$\{stop \? 'stop' : 'start'\}/.test(appJs), "NOTAUS nutzt den offiziellen Befehl surge:///stop");
-const installLinks = [...appHtml.matchAll(/href="surge:\/\/\/install-module\?url=([^"]+)"/g)].map((m) => decodeURIComponent(m[1])).sort();
+const installLinks = [...new Set([...appHtml.matchAll(/href="surge:\/\/\/install-module\?url=([^"]+)"/g)].map((m) => decodeURIComponent(m[1])))].sort();
 ok(JSON.stringify(installLinks) === JSON.stringify([RAW_BASE + "modules/youtube-sponsor-hinweise.sgmodule", RAW_BASE + "modules/youtube-werbefrei.sgmodule"]),
   "Installieren-Knöpfe zeigen auf die Module im eigenen Repo");
 ok(appJs.includes("const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';") && readFileSync(join(ROOT, "modules/youtube-sponsor-hinweise.sgmodule"), "utf8").includes("#!name=YouTube Sponsor-Hinweise"),

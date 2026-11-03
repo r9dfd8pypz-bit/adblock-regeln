@@ -13,7 +13,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 3; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 4; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
@@ -21,6 +21,7 @@
   const STATUS_KEY = 'werbefrei.sponsor.status';     // letzter Ablauf, liest die Werbefrei-App
   const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
   const CACHE_MS = 30 * 60 * 1000;
+  const PING_FRESH_MS = 3 * 24 * 60 * 60 * 1000; // so lange gelten Positions-Meldungen als „funktionieren“
   const TIMEOUT_MS = 4500;
   const MAX_SEGMENTS = 10;
   const LABELS = { sponsor: 'Sponsor', selfpromo: 'Eigenwerbung', interaction: 'Abo-Aufruf' };
@@ -267,9 +268,18 @@
           debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
           return;
         }
-        status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – Mitteilung kommt, wenn sie läuft`, segs.length);
-        debug('Sponsor-Wächter bereit', `Stellen: ${list(segs)}. Die Mitteilung kommt, wenn eine davon läuft.`);
-        if (cfg.vorschau) {
+        // Kommen keine Positions-Meldungen an (z. B. altes Modul ohne Mitlese-Regel),
+        // werden die Stellen wie früher gleich beim Start gemeldet. So bleibt es nie still.
+        const pos = readJSON(POS_KEY);
+        const pingsWork = !!(pos && Date.now() - pos.t < PING_FRESH_MS);
+        const nStellen = segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`;
+        if (pingsWork) {
+          status('bereit', `${nStellen} bekannt (${list(segs)}) – Mitteilung kommt, wenn sie läuft`, segs.length);
+          debug('Sponsor-Wächter bereit', `Stellen: ${list(segs)}. Die Mitteilung kommt, wenn eine davon läuft.`);
+        } else {
+          status('gemeldet', `${nStellen} beim Start gemeldet (keine Positions-Meldungen – Modul aktualisieren)`, segs.length);
+        }
+        if (cfg.vorschau || !pingsWork) {
           for (const s of segs.slice(0, 3)) {
             $notification.post(
               `⏭ ${label(s)} bei ${fmt(s.start)}`,

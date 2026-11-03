@@ -60,8 +60,15 @@ const sponsorData = JSON.stringify([
 ]);
 const reply200 = (cb) => cb(null, { status: 200 }, sponsorData);
 
-// ---------- A) Video wird geöffnet ----------
-const store = new Map();
+// ---------- Rückfall: noch nie Positions-Meldungen gesehen (altes Modul) ----------
+{
+  const r = await run({ body: nextRequest(ID), reply: reply200 });
+  ok(r.notes.length === 2 && r.notes[0][0] === '⏭ Sponsor bei 1:13', 'Ohne Positions-Meldungen: Stellen werden wie früher beim Start gemeldet');
+  ok(/Modul aktualisieren/.test(json(r.store, 'werbefrei.sponsor.status').text), 'Status rät, das Modul zu aktualisieren');
+}
+
+// ---------- A) Video wird geöffnet (Positions-Meldungen funktionieren) ----------
+const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxxxx', cmt: 5, t: Date.now() - 60000 })]]);
 {
   const r = await run({ body: nextRequest(ID), reply: reply200, store });
   ok(r.calls.length === 1, 'Fragt SponsorBlock beim Öffnen genau einmal');
@@ -73,7 +80,7 @@ const store = new Map();
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 3 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(st.step === 'bereit' && st.v === 4 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
