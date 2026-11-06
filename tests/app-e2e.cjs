@@ -25,8 +25,8 @@ const surge = { enabled: [MODULE], available: [MODULE, 'Anderes Modul'], mitm: t
     ['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })],
     ['werbefrei.sponsor.segments', JSON.stringify({ id: 'abc', t: Date.now(), segs: [{ start: 73, end: 126.4, category: 'sponsor' }] })],
     ['werbefrei.sponsor.pos', JSON.stringify({ id: 'abc', cmt: 80.2, t: Date.now() - 5000 })],
-    ['werbefrei.feed.diag', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-3', ep: 'browse', len: 204800, m: ['pagead'], g: 1, rm: [], rg: 0,
-      items: [{ n: 'video_lockup.eml', s: 4000, m: [], g: 0, x: false }, { n: 'promoted_video_lockup.eml', s: 6000, m: [], g: 1, x: true }] }] })],
+    ['werbefrei.feed.diag', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-4', ep: 'browse', len: 204800, m: ['pagead'], g: 1, rm: [], rg: 0,
+      items: [{ n: 'oben feld 777', s: 90000, m: [], g: 1, x: true, r: 1 }, { n: 'video_lockup.eml', s: 4000, m: [], g: 0, x: false }, { n: 'promoted_video_lockup.eml', s: 6000, m: [], g: 0, x: true, k: 1 }] }] })],
   ]) };
 function surgeHandler(req, res) {
   const cors = {
@@ -218,7 +218,8 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(diag.includes('initplayback: 1 · davon lokal beantwortet: 1'), 'Diagnose erkennt lokal beantwortetes initplayback');
   ok(diag.includes('Ergebnis: Entschlüsselung und Skript laufen.'), 'Diagnose gibt ein klares Ergebnis');
   ok(!diag.includes('geheim'), 'Diagnose-Bericht enthält keine Abfrage-Parameter');
-  ok(diag.includes('browse · 200 KB · 2 Einträge, 1 entfernt · übrig: nichts') && diag.includes('✂︎ promoted_video_lockup.eml · 6000 B · Kennzeichnung ×1') && diag.includes('behalten: video_lockup.eml'), 'Diagnose zeigt das Feed-Protokoll des YouTube-Skripts');
+  ok(diag.includes('browse · Stand werbefrei-4 · 200 KB · 3 Einträge, 2 entfernt · übrig: nichts') && diag.includes('✂︎ oben feld 777 · 90000 B · Kennzeichnung ×1 · 1 Teil entfernt') && diag.includes('✂︎ promoted_video_lockup.eml · 6000 B · zeigt auf Werbe-Inhalt') && diag.includes('behalten: video_lockup.eml'), 'Diagnose zeigt das Feed-Protokoll des YouTube-Skripts');
+  ok(diag.includes('Zwischen-Werbung (player/ad_break): 0 Anfragen'), 'Diagnose zählt Zwischen-Werbung-Anfragen');
   ok(await page.isEnabled('#btn-diag-copy'), 'Bericht kann kopiert werden');
   await shot(page, '8-hell-diagnose.png');
   await page.click('#dlg-diag [data-close]');

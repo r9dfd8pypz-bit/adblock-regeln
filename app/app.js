@@ -515,6 +515,7 @@
     const video = reqs.filter((r) => /googlevideo\.com/.test(r.URL || ''));
     const init = video.filter((r) => /\/initplayback/.test(r.URL || ''));
     const initLocal = init.filter((r) => r.modified || (r.notes || []).some((n) => /map local|mock/i.test(n)));
+    const adBreak = yt.filter((r) => /\/youtubei\/v1\/player\/ad_break/.test(r.URL || ''));
     const notes = [];
     for (const r of [...yt, ...video]) {
       for (const n of r.notes || []) {
@@ -529,7 +530,7 @@
       mitm: st.mitm, scripting: st.scripting,
       total: reqs.length, yt: yt.length, decrypted: decrypted.length, scripted: scripted.length,
       video: video.length, init: init.length, initLocal: initLocal.length,
-      stats: stats.length, statsRead: statsRead.length,
+      stats: stats.length, statsRead: statsRead.length, adBreak: adBreak.length,
       notes: notes.slice(0, 10),
       samples: yt.slice(0, 5).map((r) => `${shortUrl(r.URL)} · ${r.rule || '?'} · ${r.policyName || '?'}${r.failed ? ' · FEHLER' : ''}`),
     };
@@ -557,6 +558,7 @@
       `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted}`,
       `Video-Server: ${a.video} · initplayback: ${a.init} · davon lokal beantwortet: ${a.initLocal}`,
       `Positions-Meldungen: ${a.statsRead} mitgelesen (Verbindungen zu youtube.com: ${a.stats})`,
+      `Zwischen-Werbung (player/ad_break): ${a.adBreak} Anfragen`,
       a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : 'Hinweise von Surge: keine',
       a.samples.length ? `Beispiele:\n${a.samples.map((s) => `  - ${s}`).join('\n')}` : '',
       feedReport(a.feed),
@@ -583,10 +585,11 @@
       const t = new Date(r.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const items = Array.isArray(r.items) ? r.items : [];
       const left = hits(r.rm, r.rg);
-      lines.push(`  ${t} ${r.ep} · ${Math.round((r.len || 0) / 1024)} KB · ${items.length} Einträge, ${items.filter((x) => x.x).length} entfernt · übrig: ${left || 'nichts'}`);
+      lines.push(`  ${t} ${r.ep} · Stand ${r.v || '?'} · ${Math.round((r.len || 0) / 1024)} KB · ${items.length} Einträge, ${items.filter((x) => x.x).length} entfernt · übrig: ${left || 'nichts'}`);
       for (const x of items) {
         const h = hits(x.m, x.g);
-        if (x.x || h) lines.push(`    ${x.x ? '✂︎' : '⚠︎'} ${x.n} · ${x.s} B${h ? ` · ${h}` : ''}`);
+        const extra = `${x.r ? ` · ${x.r} Teil${x.r > 1 ? 'e' : ''} entfernt` : ''}${x.k ? ' · zeigt auf Werbe-Inhalt' : ''}`;
+        if (x.x || h) lines.push(`    ${x.x ? '✂︎' : '⚠︎'} ${x.n} · ${x.s} B${h ? ` · ${h}` : ''}${extra}`);
       }
       const names = [...new Set(items.filter((x) => !x.x && !hits(x.m, x.g)).map((x) => x.n))].slice(0, 8);
       if (names.length) lines.push(`    behalten: ${names.join(', ')}`);
@@ -744,6 +747,7 @@
     box.replaceChildren(Object.assign(document.createElement('strong'), { textContent: head }), document.createTextNode(text));
     box.hidden = false;
     const sp = state.sponsor;
+    const feed = await readFeedDiag();
     lastSponsorReport = [
       `Sponsor-Bericht · ${new Date().toLocaleString('de-DE')}`,
       `Empfehlung: ${head} – ${text}`,
@@ -759,7 +763,8 @@
       `Aufbau der Meldungen:${pings.length ? `\n${pings.map((p) => `  - ${pingLine(p)}`).join('\n')}` : ' noch keine'}`,
       `Vermerke bei /next: ${x.nextNotes.join(' | ') || 'keine'}`,
       `Surge-Meldungen: ${$('sp-r-events').textContent}`,
-    ].join('\n');
+      feedReport(feed),
+    ].filter(Boolean).join('\n');
   }
   function openSponsor() {
     $('dlg-sponsor').showModal();

@@ -1,7 +1,7 @@
 // Offline-Speicher: Mit Internet kommt immer die neueste Version vom Server.
 // Ohne Internet (oder wenn der Server nicht schnell antwortet) öffnet sich die gespeicherte
 // Version, damit „Alles sofort stoppen“ auch dann erreichbar ist.
-const CACHE = 'werbefrei-v23';
+const CACHE = 'werbefrei-v24';
 const ASSETS = [
   './',
   './index.html',

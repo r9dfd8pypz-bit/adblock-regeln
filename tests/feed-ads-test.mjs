@@ -120,7 +120,60 @@ const has = (out, text) => out.includes(Buffer.from(text, 'utf8').toString('lati
   ok(!has(out2, 'Gesponsert · Temu') && has(out2, 'video_lockup.eml'), 'Startseite beim Scrollen: Anzeige entfernt, Videos bleiben');
 }
 
-// 6. Protokoll behält nur die letzten 4 Antworten
+// 6. Anzeige als „Entität“ in frameworkUpdates (Inhalt getrennt vom Feed-Eintrag, vgl. Maasea-Issue #89)
+const vint = (nr, n) => [...varint(nr * 8), ...varint(n)];
+// Liest protobuf ohne Schema: { nr: [Bytes, …] } (nur Längenfelder), wirft bei kaputten Daten
+function felder(b) {
+  const r = {}; let p = 0;
+  const rv = () => { let v = 0, m = 1, c; do { if (p >= b.length) throw new Error('kaputt'); c = b[p++]; v += (c & 127) * m; m *= 128; } while (c & 128); return v; };
+  while (p < b.length) {
+    const t = rv(), nr = Math.floor(t / 8), wt = t % 8;
+    if (wt === 0) rv(); else if (wt === 1) p += 8; else if (wt === 5) p += 4;
+    else if (wt === 2) { const n = rv(); (r[nr] = r[nr] || []).push(b.subarray(p, p + n)); p += n; } else throw new Error('kaputt');
+    if (p > b.length) throw new Error('kaputt');
+  }
+  return r;
+}
+{
+  const KEY_AD = 'EgtXaW5nb0FkU2xvdCDkAigB', KEY_V1 = 'EgtWaWRlb0VudGl0eTEgASgB', KEY_V2 = 'EgtWaWRlb0VudGl0eTIgASgB';
+  const mutation = (key, payload) => f(1, [...f(1, s(key)), ...vint(2, 1), ...f(3, payload)]);
+  const adPayload = f(55035017, [...f(1, s('Schweizweit und in EU/UK unlimitiert.')), ...f(2, f(1, s('Gesponsert'))), ...f(3, s('Wingo')),
+    ...f(4, s('Jetzt einkaufen')), ...f(5, s(`https://www.googleadservices.com/pagead/aclk?sa=L&ai=${'w'.repeat(300)}`))]);
+  const videoPayload = (t) => f(41107435, [...f(1, s(t)), ...f(2, s('x'.repeat(400)))]);
+  const framework = f(777, f(1, [...mutation(KEY_V1, videoPayload('Video-Entität eins')), ...mutation(KEY_AD, adPayload),
+    ...mutation(KEY_V2, videoPayload('Video-Entität zwei')), ...vint(2, 1730000000)]));
+  const entityItem = (template, key) => item(template, f(12, [...f(7, s(key)), ...f(8, s('z'.repeat(50)))]));
+  const bytes = [...home([organic, entityItem('feed_entity_lockup.eml', KEY_AD), entityItem('video_entity_lockup.eml', KEY_V1)]), ...framework];
+  const store = new Map();
+  const out = await run(bytes, store, 'browse');
+  ok(!has(out, 'Jetzt einkaufen') && !has(out, 'unlimitiert'), 'Werbe-Entität („Gesponsert · Wingo“) wird aus frameworkUpdates entfernt');
+  ok(has(out, 'Video-Entität eins') && has(out, 'Video-Entität zwei'), 'Andere Entitäten bleiben erhalten');
+  ok(!has(out, 'feed_entity_lockup.eml'), 'Feed-Eintrag, der auf die Werbe-Entität zeigt, wird entfernt');
+  ok(has(out, 'video_entity_lockup.eml') && has(out, 'video_lockup.eml|abc123'), 'Normale Feed-Einträge bleiben');
+  let gueltig = false;
+  try {
+    const top = felder(Buffer.from(out, 'latin1'));
+    const muts = felder(felder(top[777][0])[1][0])[1];
+    gueltig = top[9].length === 1 && muts.length === 2;
+  } catch { /* kaputt */ }
+  ok(gueltig, 'Antwort bleibt gültiges protobuf (2 Entitäten übrig)');
+  const last = (JSON.parse(store.get('werbefrei.feed.diag') || 'null') || { list: [{ items: [] }] }).list[0];
+  ok(last.v === 'werbefrei-4' && last.items.some((x) => x.n === 'oben feld 777' && x.x && x.r === 1), 'Protokoll nennt das bereinigte frameworkUpdates-Feld');
+  ok((last.rm || []).length === 0 && last.rg === 0, 'Danach keine Werbe-Kennzeichnung mehr in der Antwort');
+  ok(!/EgtXaW5n|Wingo|unlimitiert/.test(store.get('werbefrei.feed.diag') || ''), 'Protokoll enthält keine Schlüssel oder Texte');
+}
+
+// 7. Werbe-Abschnitt unbekannter Art in der Abschnittsliste
+{
+  const adSection = f(1, f(61254455, [...f(1, s('Gesponsert')), ...f(2, s('p'.repeat(400)))]));
+  const otherSection = f(1, f(61254456, s('Unbekannter normaler Abschnitt '.repeat(20))));
+  const sec = (items) => f(9, f(58173949, f(1, f(58174010, f(4, f(49399797, [...f(1, f(50195462, items.flat())), ...adSection, ...otherSection]))))));
+  const out = await run(sec([organic]), new Map(), 'browse');
+  ok(!has(out, 'p'.repeat(400)), 'Unbekannter Abschnitt mit „Gesponsert“ wird entfernt');
+  ok(has(out, 'Unbekannter normaler Abschnitt') && has(out, 'video_lockup.eml'), 'Andere Abschnitte und Videos bleiben');
+}
+
+// 8. Protokoll behält nur die letzten 4 Antworten
 {
   const store = new Map();
   for (let i = 0; i < 6; i++) await run(next([organic]), store);
