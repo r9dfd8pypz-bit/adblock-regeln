@@ -1,12 +1,12 @@
 # Herkunft und Prüfung des YouTube-Skripts
 
-`youtube.response.js` stammt von **Maasea/sgmodule** und steht unter der Apache-2.0-Lizenz (siehe `LICENSE` in diesem Ordner). **Seit 06.11.2026 ist die Datei an drei Stellen geändert** (siehe unten); die Änderung ist im Dateikopf vermerkt.
+`youtube.response.js` stammt von **Maasea/sgmodule** und steht unter der Apache-2.0-Lizenz (siehe `LICENSE` in diesem Ordner). **Seit 06.11.2026 ist die Datei geändert** (siehe unten); die Änderung ist im Dateikopf vermerkt.
 
 | | |
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/65075cdb388fc5e3094afd7e7314c67b243f3525/Script/Youtube/youtube.response.js |
 | Commit | `65075cdb388fc5e3094afd7e7314c67b243f3525` vom 19.07.2026 („#100 fix ad judgment“) |
-| SHA-256: | `fd2e08c5e0f15468bdb4ee1312da03fdace8ce9bbe6847f66bfbea9ecb34f582` (geänderte Fassung) |
+| SHA-256: | `de53d81ea9f1d79587fc7e797955f7641de76505ec6a9ff723cee5f77ed8ed5b` (geänderte Fassung, Stand „werbefrei-3“) |
 | Original-Prüfsumme | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` (unverändert vom Autor) |
 | Geprüft am | 02.11.2026 |
 
@@ -23,7 +23,16 @@ Geändert:
 - **Kein „keine Werbung“-Speicher mehr:** Es werden nur noch sichere Werbe-Typen gespeichert, also wie im Original `pagead` ab 1000 Byte.
 - **Speicher-Reset:** Die Versionskennung des gelernten Speichers ist jetzt `1.0-werbefrei-2` statt `1.0`. Alte, eventuell falsche Einträge werden dadurch ignoriert.
 
-`node tests/feed-ads-test.mjs` prüft das: Mit dem Original schlagen 4 Prüfungen fehl, mit der geänderten Fassung keine.
+### Nachtrag „werbefrei-3“ (06.11.2026): Video-Anzeigen auf der Startseite
+
+Anlass: Eine Video-Anzeige („Gesponsert · Temu“, Knöpfe „Ansehen“ und „Zur Website“) in der Startseite blieb stehen. Solche Einträge enthalten nicht unbedingt eine Werbeadresse.
+
+Zusätzlich geändert:
+- **Kennzeichnung:** Ein Eintrag gilt auch dann als Werbung, wenn ein Textfeld mit „Gesponsert“ beginnt (ebenso „Sponsored“, „Sponsorisé“, „Sponsorizzato“, „Patrocinado“, „Gesponsord“). Gezählt wird nur ein Text, der **mit** dem Wort anfängt. Ein Videotitel wie „Warum ist so viel Gesponsert?“ bleibt also stehen.
+- **Weitere Werbeadressen:** Neben `pagead`, `googleadservices` und `doubleclick.net` jetzt auch `googlesyndication` und `/aclk?`. Adressen zählen erst ab 300 Byte Eintragsgröße.
+- **Feed-Protokoll:** Für `browse`, `next`, `search` und `get_watch` speichert das Skript lokal in Surge (`$persistentStore`, Schlüssel `werbefrei.feed.diag`) die letzten 4 Antworten: pro Eintrag nur den Namen der Vorlage (z. B. `video_lockup.eml`) oder die Feldnummer, die Größe, die gefundenen Merkmale und ob er entfernt wurde. Dazu kommt, ob nach dem Filtern noch Merkmale in der Antwort stecken. **Titel, Kanäle und andere Inhalte werden nicht gespeichert.** Die App zeigt das Protokoll in „YouTube-Diagnose“. Es verlässt das iPhone nur, wenn du den Bericht selbst kopierst.
+
+`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite und Nachladen beim Scrollen: Mit dem Original schlagen 12 Prüfungen fehl, mit der geänderten Fassung keine.
 
 ## Warum eine Kopie statt eines Links zum Original?
 
@@ -35,7 +44,7 @@ Geändert:
 - Das Skript enthält keine Server-Adressen. Die einzige URL ist ein Doku-Link in einer Fehlermeldung der protobuf-Bibliothek.
 - Die Netzwerkfunktion (`fetch` über `$httpClient` bzw. `$task`) ist zwar definiert, wird aber **nirgends aufgerufen**. Früher war sie für die Untertitel-Übersetzung da.
 - Es gibt kein `eval`, kein `new Function`, kein `require` und keinen Zugriff auf `process`.
-- Gespeichert wird nur lokal in Surge (`$persistentStore`): ein Werbe-Zwischenspeicher und Konfigurationsschlüssel.
+- Gespeichert wird nur lokal in Surge (`$persistentStore`): ein Werbe-Zwischenspeicher, Konfigurationsschlüssel und (unsere Änderung) das Feed-Protokoll ohne Inhalte.
 - Was das Skript tatsächlich tut: Es liest die protobuf-Antworten von `youtubei.googleapis.com` und löscht Werbe-Einträge, also `adPlacements`, `adSlots`, Werbung im Shorts-Feed und Werbe-Elemente im Feed. Danach gibt es die Antwort zurück. Außerdem schaltet es Bild-in-Bild und Hintergrundwiedergabe frei und blendet auf Wunsch Knöpfe aus.
 
 `node tests/pruefen.mjs` prüft die Punkte oben automatisch. Ändert sich das Skript, schlägt der Hash-Vergleich fehl, und es muss neu geprüft werden.

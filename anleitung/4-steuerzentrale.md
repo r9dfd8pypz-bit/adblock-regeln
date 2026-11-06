@@ -63,7 +63,7 @@ Das geht erst, wenn Surge nach [Schritt 2](2-surge-youtube.md) eingerichtet ist,
 | Rot mit Kreuz | **Schlüssel passt nicht** |
 | Grau | **Surge ist aus** oder noch nicht eingerichtet |
 
-Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschlüsselt und gefiltert wird. Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
+Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschlüsselt und gefiltert wird. Das **Feed-Protokoll** darunter zeigt für die letzten Startseiten- und Video-Antworten, welche Einträge als Werbung entfernt wurden (✂︎) und ob danach noch Werbe-Merkmale übrig sind. Es enthält nur Vorlagen-Namen und Größen, keine Titel. Siehst du trotzdem eine Anzeige, tippe direkt danach auf **Bericht kopieren** und schick den Text weiter. Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
 
 ## Sicherheit
 

@@ -161,6 +161,8 @@
           segs: JSON.stringify({ id: 'demo', t: Date.now() - 120000, segs: [{ start: 73, end: 126, category: 'sponsor' }] }),
           pos: JSON.stringify({ id: 'demo', cmt: 131, t: Date.now() - 6000 }),
           debug: s.sponsorDebug || 'false',
+          feed: JSON.stringify({ list: [{ t: Date.now() - 30000, v: 'werbefrei-3', ep: 'browse', len: 182000, m: ['pagead'], g: 1, rm: [], rg: 0,
+            items: [{ n: 'video_lockup.eml', s: 4100, m: [], g: 0, x: false }, { n: 'promoted_video_lockup.eml', s: 6200, m: ['pagead'], g: 1, x: true }] }] }),
         } };
       },
       setRunning(on) { s.running = on; save(); },
@@ -557,7 +559,39 @@
       `Positions-Meldungen: ${a.statsRead} mitgelesen (Verbindungen zu youtube.com: ${a.stats})`,
       a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : 'Hinweise von Surge: keine',
       a.samples.length ? `Beispiele:\n${a.samples.map((s) => `  - ${s}`).join('\n')}` : '',
+      feedReport(a.feed),
     ].filter(Boolean).join('\n');
+  }
+  // Feed-Protokoll des YouTube-Skripts: pro Antwort die Einträge (Vorlagen-Name, Größe, Treffer),
+  // ohne Titel oder andere Inhalte. „übrig“ = nach dem Filtern noch Werbe-Merkmale in der Antwort.
+  const FEED_DIAG_KEY = 'werbefrei.feed.diag';
+  async function readFeedDiag() {
+    try {
+      const res = await backend.evaluate(`$done({ feed: $persistentStore.read(${JSON.stringify(FEED_DIAG_KEY)}) });`);
+      const v = res && res.result && res.result.feed;
+      const d = v ? JSON.parse(v) : null;
+      return d && Array.isArray(d.list) ? d.list : [];
+    } catch { return null; }
+  }
+  function feedReport(list) {
+    if (list === undefined) return '';
+    if (list === null) return 'Feed-Protokoll: nicht lesbar';
+    if (!list.length) return 'Feed-Protokoll: noch leer – Skript aktualisieren und YouTube-Startseite öffnen';
+    const hits = (m, g) => [...(m || []), ...(g ? [`Kennzeichnung ×${g}`] : [])].join(', ');
+    const lines = ['Feed-Protokoll (neueste zuerst):'];
+    for (const r of list.slice(0, 3)) {
+      const t = new Date(r.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const items = Array.isArray(r.items) ? r.items : [];
+      const left = hits(r.rm, r.rg);
+      lines.push(`  ${t} ${r.ep} · ${Math.round((r.len || 0) / 1024)} KB · ${items.length} Einträge, ${items.filter((x) => x.x).length} entfernt · übrig: ${left || 'nichts'}`);
+      for (const x of items) {
+        const h = hits(x.m, x.g);
+        if (x.x || h) lines.push(`    ${x.x ? '✂︎' : '⚠︎'} ${x.n} · ${x.s} B${h ? ` · ${h}` : ''}`);
+      }
+      const names = [...new Set(items.filter((x) => !x.x && !hits(x.m, x.g)).map((x) => x.n))].slice(0, 8);
+      if (names.length) lines.push(`    behalten: ${names.join(', ')}`);
+    }
+    return lines.join('\n');
   }
   let lastReport = '';
   async function runDiagnosis() {
@@ -566,8 +600,8 @@
     out.textContent = 'Prüfe …';
     $('btn-diag').disabled = true;
     try {
-      const [st, recent] = await Promise.all([backend.status(), backend.recentRequests()]);
-      const a = analyse(st, recent);
+      const [st, recent, feed] = await Promise.all([backend.status(), backend.recentRequests(), readFeedDiag()]);
+      const a = { ...analyse(st, recent), feed };
       lastReport = report(a);
       out.textContent = lastReport;
       $('btn-diag-copy').disabled = false;
