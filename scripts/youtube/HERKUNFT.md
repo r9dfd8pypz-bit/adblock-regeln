@@ -1,13 +1,29 @@
 # Herkunft und Prüfung des YouTube-Skripts
 
-`youtube.response.js` stammt unverändert von **Maasea/sgmodule** und steht unter der Apache-2.0-Lizenz (siehe `LICENSE` in diesem Ordner).
+`youtube.response.js` stammt von **Maasea/sgmodule** und steht unter der Apache-2.0-Lizenz (siehe `LICENSE` in diesem Ordner). **Seit 06.11.2026 ist die Datei an drei Stellen geändert** (siehe unten); die Änderung ist im Dateikopf vermerkt.
 
 | | |
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/65075cdb388fc5e3094afd7e7314c67b243f3525/Script/Youtube/youtube.response.js |
 | Commit | `65075cdb388fc5e3094afd7e7314c67b243f3525` vom 19.07.2026 („#100 fix ad judgment“) |
-| SHA-256: | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` |
+| SHA-256: | `fd2e08c5e0f15468bdb4ee1312da03fdace8ce9bbe6847f66bfbea9ecb34f582` (geänderte Fassung) |
+| Original-Prüfsumme | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` (unverändert vom Autor) |
 | Geprüft am | 02.11.2026 |
+
+## Änderungen gegenüber dem Original (06.11.2026)
+
+Anlass: Eine Shopping-Anzeige („Gesponsert · Music Store“, Produktkarussell) unter dem Video wurde nicht entfernt.
+
+Das Original erkennt Werbung im Feed am Merkmal `pagead` und **merkt sich dauerhaft**, welche Vorlagen und Feldnummern „Werbung“ oder „keine Werbung“ sind. Zwei Schwächen:
+1. Es sucht `pagead` nur im Inhalts-Teil (`videoContent`) eines Eintrags bzw. erst ab 1000 Byte. Steckt das Merkmal woanders, zum Beispiel beim Knopf „Zur Website“, gilt der Eintrag als „keine Werbung“.
+2. Ein einmal als „keine Werbung“ gelernter Typ wird nie wieder geprüft. Eine einzige Fehleinschätzung lässt diese Anzeigenart dauerhaft durch.
+
+Geändert:
+- **`Ei` / `Fi`:** Ist ein Eintrag nicht sicher als Werbung bekannt, wird der **ganze Eintrag** (neu codiert mit `te.toBinary`) nach `pagead`, `googleadservices` und `doubleclick.net` durchsucht. Das geschieht bei jedem Eintrag neu, ohne Speichern.
+- **Kein „keine Werbung“-Speicher mehr:** Es werden nur noch sichere Werbe-Typen gespeichert, also wie im Original `pagead` ab 1000 Byte.
+- **Speicher-Reset:** Die Versionskennung des gelernten Speichers ist jetzt `1.0-werbefrei-2` statt `1.0`. Alte, eventuell falsche Einträge werden dadurch ignoriert.
+
+`node tests/feed-ads-test.mjs` prüft das: Mit dem Original schlagen 4 Prüfungen fehl, mit der geänderten Fassung keine.
 
 ## Warum eine Kopie statt eines Links zum Original?
 

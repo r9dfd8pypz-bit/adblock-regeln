@@ -43,7 +43,7 @@ Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/ap
 ## Sicherheitsregeln
 
 - Surge entschlüsselt nur YouTube-Adressen: `youtubei.googleapis.com` und `*.googlevideo.com` (Werbefilter), dazu `s.youtube.com` und `www.youtube.com`, falls die Sponsor-Hinweise an sind. Bei diesen beiden liest das Skript nur die Wiedergabe-Position mit. Banking, Apple, Gesundheit und alles andere bleiben unberührt. `tests/pruefen.mjs` prüft das automatisch.
-- Das YouTube-Skript liegt als **geprüfte, feste Kopie** in diesem Repo, siehe [scripts/youtube/HERKUNFT.md](scripts/youtube/HERKUNFT.md). Der Teil des Originals, der Daten an einen fremden Server schickt, ist entfernt.
+- Das YouTube-Skript liegt als **geprüfte, feste Kopie** in diesem Repo, siehe [scripts/youtube/HERKUNFT.md](scripts/youtube/HERKUNFT.md). Der Teil des Originals, der Daten an einen fremden Server schickt, ist entfernt, und die Werbe-Erkennung im Feed ist verbessert (dort dokumentiert).
 - Das Surge-Zertifikat wird auf deinem iPhone erzeugt und bleibt dort. Exportiere oder teile es nie.
 - Aufhören geht jederzeit: Surge löschen und das Zertifikat entfernen unter Einstellungen → Allgemein → VPN und Geräteverwaltung.
 
@@ -60,6 +60,7 @@ anleitung/                           Schritt-für-Schritt-Anleitungen fürs iPho
 tests/pruefen.mjs                    Automatische Prüfung: node tests/pruefen.mjs
 tests/app-e2e.cjs                    App-Test gegen eine nachgebaute Surge-Schnittstelle (braucht Playwright)
 tests/sponsor-test.mjs               Test für das Sponsor-Skript: node tests/sponsor-test.mjs
+tests/feed-ads-test.mjs              Test: Werbung im Feed (z. B. Shopping-Karussell) wird entfernt
 ```
 
 ## Etwas ändern lassen
