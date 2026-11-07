@@ -6,7 +6,7 @@
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/65075cdb388fc5e3094afd7e7314c67b243f3525/Script/Youtube/youtube.response.js |
 | Commit | `65075cdb388fc5e3094afd7e7314c67b243f3525` vom 19.07.2026 („#100 fix ad judgment“) |
-| SHA-256: | `ec095e9a3608827bbec7f00c73e9ed5c023a9f9b0410089f50eca0d7af108544` (geänderte Fassung, Stand „werbefrei-4“) |
+| SHA-256: | `c2a06cb2ad28a952edda97b537a64b375371fb3f17826f59c6066369bfe94db7` (geänderte Fassung, Stand „werbefrei-5“) |
 | Original-Prüfsumme | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` (unverändert vom Autor) |
 | Geprüft am | 02.11.2026 |
 
@@ -42,7 +42,23 @@ Zusätzlich geändert:
 - **Unbekannte Abschnitte:** Ein Eintrag der Abschnittsliste, der zu keiner bekannten Art gehört und Werbe-Merkmale trägt, wird entfernt.
 - **Protokoll:** Stand jetzt `werbefrei-4`. Neue Zeilen sind „oben feld N“ (mit Anzahl entfernter Teile), „abschnitt feld N“ und „zeigt auf Werbe-Inhalt“. Schlüssel und Texte werden weiterhin nicht gespeichert.
 
-`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 18 Prüfungen fehl, mit der geänderten Fassung keine.
+### Nachtrag „werbefrei-5“ (07.11.2026): Spurensuche und genauer Bericht
+
+Anlass: Es kam wieder Werbung im Feed. Damit wir nicht mehr nach Screenshots raten müssen, kann das Skript jetzt genau beschreiben, wo eine Anzeige in der YouTube-Antwort steckt.
+
+Zusätzlich geändert:
+- **Spurensuche:** Die App legt ein Suchwort aus der Anzeige ab, zum Beispiel den Firmennamen (`werbefrei.feed.search`, gilt 20 Minuten). Das Skript sucht das Wort in jeder Antwort, die es bearbeitet. Für bis zu 3 Fundstellen hält es fest:
+  - den Pfad aus Feldnummern mit Position in Listen,
+  - einen Bauplan des umgebenden Eintrags: Feldnummern, Größen, Vorlagen-Namen, Server-Namen aus Adressen, Textlängen,
+  - die Nachbar-Einträge zum Vergleich,
+  - ob das Wort nach dem Filter noch in der Antwort steht.
+
+  **Texte selbst werden nicht gespeichert**, nur das Suchwort. Ein Eintrag wird dabei nie entfernt.
+- **Läufe und Fehler:** Das Skript zählt pro Schnittstelle, wie oft es lief, wie lange es brauchte und ob es etwas geändert hat (`werbefrei.feed.runs`). Fehler werden nicht mehr verschluckt, sondern festgehalten (`werbefrei.feed.errors`, die letzten 5).
+- **Kennzeichnung strenger:** Ein Text zählt nur noch als „Gesponsert“-Etikett, wenn er höchstens 48 Byte lang ist und nach dem Wort endet oder ein Trenner folgt (· • | - – —). Eine Videobeschreibung wie „Sponsored by NordVPN – …“ oder „Gesponsert von …“ bleibt so stehen.
+- **Entitäts-Schlüssel** zählen nur noch in Base64-Schreibweise, zum Beispiel nicht bei Vorlagen-Namen.
+
+`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 25 Prüfungen fehl, mit der geänderten Fassung keine.
 
 ## Warum eine Kopie statt eines Links zum Original?
 
@@ -54,7 +70,7 @@ Zusätzlich geändert:
 - Das Skript enthält keine Server-Adressen. Die einzige URL ist ein Doku-Link in einer Fehlermeldung der protobuf-Bibliothek.
 - Die Netzwerkfunktion (`fetch` über `$httpClient` bzw. `$task`) ist zwar definiert, wird aber **nirgends aufgerufen**. Früher war sie für die Untertitel-Übersetzung da.
 - Es gibt kein `eval`, kein `new Function`, kein `require` und keinen Zugriff auf `process`.
-- Gespeichert wird nur lokal in Surge (`$persistentStore`): ein Werbe-Zwischenspeicher, Konfigurationsschlüssel und (unsere Änderung) das Feed-Protokoll ohne Inhalte.
+- Gespeichert wird nur lokal in Surge (`$persistentStore`): ein Werbe-Zwischenspeicher, Konfigurationsschlüssel und (unsere Änderung) Feed-Protokoll, Läufe, Fehler und Spurensuche, jeweils ohne Inhalte.
 - Was das Skript tatsächlich tut: Es liest die protobuf-Antworten von `youtubei.googleapis.com` und löscht Werbe-Einträge, also `adPlacements`, `adSlots`, Werbung im Shorts-Feed und Werbe-Elemente im Feed. Danach gibt es die Antwort zurück. Außerdem schaltet es Bild-in-Bild und Hintergrundwiedergabe frei und blendet auf Wunsch Knöpfe aus.
 
 `node tests/pruefen.mjs` prüft die Punkte oben automatisch. Ändert sich das Skript, schlägt der Hash-Vergleich fehl, und es muss neu geprüft werden.

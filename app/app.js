@@ -44,6 +44,18 @@
       return m ? Number(m[1]) : null;
     } catch { return null; }
   }
+  const YT_SCRIPT_URL = 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/youtube.response.js';
+  // Welcher Stand des YouTube-Skripts liegt online? (z. B. „werbefrei-5“, null wenn nicht abrufbar)
+  async function onlineFeedVersion() {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(YT_SCRIPT_URL, { cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
+      const m = /WfVer="(werbefrei-\d+)"/.exec(await res.text());
+      return m ? m[1] : null;
+    } catch { return null; }
+  }
   const LOG_MAX = 40;
 
   // ---------- Speicher (nur auf diesem Gerät) ----------
@@ -161,6 +173,11 @@
           segs: JSON.stringify({ id: 'demo', t: Date.now() - 120000, segs: [{ start: 73, end: 126, category: 'sponsor' }] }),
           pos: JSON.stringify({ id: 'demo', cmt: 131, t: Date.now() - 6000 }),
           debug: s.sponsorDebug || 'false',
+          search: JSON.stringify({ word: 'Wingo', t: Date.now() - 60000, until: Date.now() + 1080000, v: 'werbefrei-5',
+            checked: [{ t: Date.now() - 30000, ep: 'browse', len: 812000, n: 1, out: true }],
+            hits: [{ p: '9>58173949>1>58174010>4>49399797>1>50195462>1[7/20]>153515154>172660663>1>168777401>5>1', leaf: 'WORT', ep: 'browse', t: Date.now() - 30000, out: true,
+              e: [{ at: 9, i: 7, n: 20, skel: '{153515154{172660663{1{168777401{5{1:WORT 2:txt15}}} 2{183314536{1:eml:demo_promo.eml}}}}}', sibs: ['6: video_lockup.eml·5KB', '▶ 7: demo_promo.eml·7KB·WORT', '8: video_lockup.eml·5KB'] }] }] }),
+          runs: JSON.stringify({ v: 'werbefrei-5', t: Date.now() - 30000, eps: { browse: { n: 12, c: 12, t: Date.now() - 30000, ms: 85, len: 812000, ch: true } } }),
           feed: JSON.stringify({ list: [{ t: Date.now() - 30000, v: 'werbefrei-3', ep: 'browse', len: 182000, m: ['pagead'], g: 1, rm: [], rg: 0,
             items: [{ n: 'video_lockup.eml', s: 4100, m: [], g: 0, x: false }, { n: 'promoted_video_lockup.eml', s: 6200, m: ['pagead'], g: 1, x: true }] }] }),
         } };
@@ -585,7 +602,7 @@
       const t = new Date(r.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const items = Array.isArray(r.items) ? r.items : [];
       const left = hits(r.rm, r.rg);
-      lines.push(`  ${t} ${r.ep} · Stand ${r.v || '?'} · ${Math.round((r.len || 0) / 1024)} KB · ${items.length} Einträge, ${items.filter((x) => x.x).length} entfernt · übrig: ${left || 'nichts'}`);
+      lines.push(`  ${t} ${r.ep} · Stand ${r.v || '?'}${r.ms != null ? ` · ${r.ms} ms` : ''} · ${Math.round((r.len || 0) / 1024)} KB · ${items.length} Einträge, ${items.filter((x) => x.x).length} entfernt · übrig: ${left || 'nichts'}`);
       for (const x of items) {
         const h = hits(x.m, x.g);
         const extra = `${x.r ? ` · ${x.r} Teil${x.r > 1 ? 'e' : ''} entfernt` : ''}${x.k ? ' · zeigt auf Werbe-Inhalt' : ''}`;
@@ -596,6 +613,147 @@
     }
     return lines.join('\n');
   }
+  // ---------- Werbung melden: Spurensuche + genauer Bericht ----------
+  // Die App legt ein Suchwort in Surge ab; das YouTube-Skript beschreibt dann, wo dieses Wort in den
+  // YouTube-Antworten steckt (Feldnummern, Größen, Vorlagen-Namen, Server-Namen – keine Texte).
+  const FEED_SEARCH_KEY = 'werbefrei.feed.search';
+  const FEED_RUNS_KEY = 'werbefrei.feed.runs';
+  const FEED_ERRORS_KEY = 'werbefrei.feed.errors';
+  const SEARCH_MINUTES = 20;
+  const COVERED_ENDPOINTS = /^(browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch)$/;
+  const parseJson = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
+  const hhmmss = (t) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const kb = (n) => `${Math.round((n || 0) / 1024)} KB`;
+
+  async function readAdData() {
+    const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
+    const res = await backend.evaluate(`$done({ search: ${read(FEED_SEARCH_KEY)}, runs: ${read(FEED_RUNS_KEY)}, errors: ${read(FEED_ERRORS_KEY)}, feed: ${read(FEED_DIAG_KEY)} });`);
+    const r = (res && res.result) || {};
+    const feed = parseJson(r.feed);
+    return { search: parseJson(r.search), runs: parseJson(r.runs), errors: parseJson(r.errors), feed: feed && Array.isArray(feed.list) ? feed.list : [] };
+  }
+  async function writeSearch(obj) {
+    await backend.evaluate(`$persistentStore.write(${JSON.stringify(JSON.stringify(obj))}, ${JSON.stringify(FEED_SEARCH_KEY)}); $done({});`);
+  }
+  function describeSearch(sr) {
+    if (!sr || !sr.word) return 'Keine aktiv';
+    const n = Array.isArray(sr.checked) ? sr.checked.length : 0;
+    const hits = Array.isArray(sr.hits) ? sr.hits.length : 0;
+    const found = `${n} Antwort${n === 1 ? '' : 'en'} geprüft · ${hits} Fundstelle${hits === 1 ? '' : 'n'}`;
+    if (sr.until > Date.now()) {
+      const min = Math.max(1, Math.round((sr.until - Date.now()) / 60000));
+      return `Sucht nach „${sr.word}“ · noch ${min} min · ${found}${n ? '' : ' – jetzt YouTube öffnen und die Startseite neu laden'}`;
+    }
+    return `Beendet: „${sr.word}“ · ${found}`;
+  }
+  function renderSearchStatus(sr) { $('ar-status').textContent = describeSearch(sr); }
+  async function refreshSearchStatus() {
+    try { renderSearchStatus((await readAdData()).search); } catch (e) { $('ar-status').textContent = `Nicht lesbar: ${errorText(e)}`; }
+  }
+  async function startSearch() {
+    const word = $('ar-word').value.trim();
+    if (word.length < 2) { $('ar-status').textContent = 'Bitte mindestens 2 Buchstaben eingeben'; $('ar-word').focus(); return; }
+    try {
+      await writeSearch({ word, t: Date.now(), until: Date.now() + SEARCH_MINUTES * 60000 });
+      storage.set('adWord', word);
+      log(`Spurensuche gestartet: „${word}“`, 'info');
+      await refreshSearchStatus();
+    } catch (e) { $('ar-status').textContent = `Nicht gestartet: ${errorText(e)}`; }
+  }
+  async function stopSearch() {
+    try {
+      const { search } = await readAdData();
+      if (search && search.word) await writeSearch({ ...search, until: Date.now() - 1 });
+      await refreshSearchStatus();
+    } catch (e) { $('ar-status').textContent = `Nicht beendet: ${errorText(e)}`; }
+  }
+  function runsReport(runs) {
+    if (!runs || !runs.eps) return 'Skript-Läufe: noch keine – Skript aktualisieren und YouTube öffnen';
+    const parts = Object.entries(runs.eps).sort((a, b) => b[1].t - a[1].t)
+      .map(([ep, o]) => `${ep} ${o.n}× (zuletzt ${ago(o.t)}, ${o.ms} ms, ${kb(o.len)}, verändert ${o.c}×)`);
+    return `Skript-Läufe (Stand ${runs.v || '?'}): ${parts.join(' · ')}`;
+  }
+  function errorsReport(errs) {
+    const list = errs && Array.isArray(errs.list) ? errs.list : [];
+    return list.length ? `Fehler im Skript:\n${list.map((x) => `  ${hhmmss(x.t)} ${x.v || ''} ${x.w}: ${x.e}`).join('\n')}` : 'Fehler im Skript: keine';
+  }
+  function endpointSummary(recent) {
+    const reqs = Array.isArray(recent && recent.requests) ? recent.requests : [];
+    const by = new Map();
+    let tunnel = 0;
+    for (const r of reqs) {
+      if (/^youtubei\.googleapis\.com:443/.test(r.URL || '')) { tunnel++; continue; }
+      const m = /^https?:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/([a-z_/]+)/i.exec(r.URL || '');
+      if (!m) continue;
+      const o = by.get(m[1]) || { n: 0, mod: 0, fail: 0, notes: new Set() };
+      o.n++;
+      if (r.modified) o.mod++;
+      if (r.failed) o.fail++;
+      for (const n of r.notes || []) if (/script|error|fail|timeout|reject|map local/i.test(n) && o.notes.size < 2) o.notes.add(String(n).slice(0, 120));
+      by.set(m[1], o);
+    }
+    const lines = [...by].sort((a, b) => b[1].n - a[1].n).map(([ep, o]) =>
+      `  ${ep}: ${o.n}× · verändert ${o.mod}${o.fail ? ` · FEHLER ${o.fail}` : ''}${COVERED_ENDPOINTS.test(ep) ? '' : ' · nicht im Filter'}${o.notes.size ? ` · ${[...o.notes].join(' | ')}` : ''}`);
+    if (tunnel) lines.push(`  nicht entschlüsselt: ${tunnel}×`);
+    return lines;
+  }
+  function searchReport(sr) {
+    if (!sr || !sr.word) return 'Spurensuche: keine – oben ein Wort aus der Anzeige eingeben und starten';
+    const lines = [`Spurensuche: ${describeSearch(sr)}${sr.v ? ` · Skript ${sr.v}` : ''}`];
+    for (const c of (Array.isArray(sr.checked) ? sr.checked : []).slice(0, 12)) {
+      lines.push(`  ${hhmmss(c.t)} ${c.ep} · ${kb(c.len)} · ${c.n ? `${c.n} Treffer · nach dem Filter ${c.out ? 'NOCH DA ❗' : 'entfernt ✅'}` : 'kein Treffer'}`);
+    }
+    (Array.isArray(sr.hits) ? sr.hits : []).forEach((h, i) => {
+      lines.push(`Fundstelle ${i + 1} · ${h.ep} · ${hhmmss(h.t)} · nach dem Filter ${h.out ? 'NOCH DA ❗' : 'entfernt ✅'}`);
+      lines.push(`  Pfad: ${h.p}`);
+      lines.push(`  An der Stelle: ${h.leaf}`);
+      for (const e of h.e || []) {
+        lines.push(`  Eintrag ${e.i} von ${e.n} (Ebene ${e.at}): ${e.skel}`);
+        if (e.sibs && e.sibs.length) lines.push(`  Nachbarn: ${e.sibs.join(' | ')}`);
+      }
+    });
+    return lines.join('\n');
+  }
+  let lastAdReport = '';
+  async function buildAdReport() {
+    const out = $('ar-out');
+    out.hidden = false;
+    out.textContent = 'Erstelle Bericht …';
+    $('btn-ar-build').disabled = true;
+    try {
+      const [data, st, recent, online] = await Promise.all([
+        readAdData(), backend.status().catch(() => null), backend.recentRequests().catch(() => null),
+        backend.demo ? Promise.resolve(null) : onlineFeedVersion(),
+      ]);
+      renderSearchStatus(data.search);
+      const loaded = data.runs && data.runs.v;
+      lastAdReport = [
+        `Werbe-Bericht · ${new Date().toLocaleString('de-DE')}`,
+        st ? `Modul „${settings.module}“: ${st.enabled.includes(settings.module) ? 'an' : 'AUS ❗'} · MitM: ${st.mitm ? 'an' : 'AUS ❗'} · Skripte: ${st.scripting ? 'an' : 'AUS ❗'}` : 'Surge: Status nicht lesbar',
+        `YouTube-Skript: geladen ${loaded || 'unbekannt'} · online ${online || 'unbekannt'}${loaded && online && loaded !== online ? ' ❗ „Regeln & Skripte aktualisieren“ tippen' : ''}`,
+        runsReport(data.runs),
+        errorsReport(data.errors),
+        recent ? `Surge, letzte YouTube-Anfragen:\n${endpointSummary(recent).join('\n') || '  keine'}` : 'Surge-Anfragen: nicht lesbar',
+        searchReport(data.search),
+        feedReport(data.feed),
+      ].filter(Boolean).join('\n');
+      out.textContent = lastAdReport;
+      $('btn-ar-copy').disabled = false;
+      log('Werbe-Bericht erstellt', 'info');
+    } catch (e) {
+      lastAdReport = '';
+      out.textContent = `Bericht nicht möglich: ${errorText(e)}`;
+      $('btn-ar-copy').disabled = true;
+    } finally {
+      $('btn-ar-build').disabled = false;
+    }
+  }
+  function openAdReport() {
+    if (!$('ar-word').value) $('ar-word').value = storage.get('adWord', '');
+    $('dlg-adreport').showModal();
+    refreshSearchStatus();
+  }
+
   let lastReport = '';
   async function runDiagnosis() {
     const out = $('diag-out');
@@ -946,6 +1104,11 @@
 
     $('btn-dns-check').addEventListener('click', () => checkNextDns(false));
     $('btn-diag').addEventListener('click', runDiagnosis);
+    $('btn-ar-start').addEventListener('click', startSearch);
+    $('btn-ar-stop').addEventListener('click', stopSearch);
+    $('btn-ar-build').addEventListener('click', buildAdReport);
+    $('btn-ar-copy').addEventListener('click', () => { if (lastAdReport) copyText(lastAdReport); });
+    $('ar-word').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); startSearch(); } });
     $('btn-diag-copy').addEventListener('click', () => { if (lastReport) copyText(lastReport); });
     $('btn-setup').addEventListener('click', () => (state.reach === 'auth' ? openSettings() : openSetup()));
 
@@ -987,6 +1150,7 @@
       else if (action === 'log') { renderLog(); $('dlg-log').showModal(); }
       else if (action === 'diag') { $('dlg-diag').showModal(); runDiagnosis(); }
       else if (action === 'sponsor') openSponsor();
+      else if (action === 'adreport') openAdReport();
     });
     for (const b of document.querySelectorAll('[data-theme-choice]')) {
       b.addEventListener('click', () => applyTheme(b.dataset.themeChoice, true));

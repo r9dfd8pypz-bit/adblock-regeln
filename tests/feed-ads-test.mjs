@@ -158,7 +158,7 @@ function felder(b) {
   } catch { /* kaputt */ }
   ok(gueltig, 'Antwort bleibt gültiges protobuf (2 Entitäten übrig)');
   const last = (JSON.parse(store.get('werbefrei.feed.diag') || 'null') || { list: [{ items: [] }] }).list[0];
-  ok(last.v === 'werbefrei-4' && last.items.some((x) => x.n === 'oben feld 777' && x.x && x.r === 1), 'Protokoll nennt das bereinigte frameworkUpdates-Feld');
+  ok(Number((/^werbefrei-(\d+)$/.exec(last.v || '') || [])[1]) >= 4 && last.items.some((x) => x.n === 'oben feld 777' && x.x && x.r === 1), 'Protokoll nennt das bereinigte frameworkUpdates-Feld');
   ok((last.rm || []).length === 0 && last.rg === 0, 'Danach keine Werbe-Kennzeichnung mehr in der Antwort');
   ok(!/EgtXaW5n|Wingo|unlimitiert/.test(store.get('werbefrei.feed.diag') || ''), 'Protokoll enthält keine Schlüssel oder Texte');
 }
@@ -173,7 +173,56 @@ function felder(b) {
   ok(has(out, 'Unbekannter normaler Abschnitt') && has(out, 'video_lockup.eml'), 'Andere Abschnitte und Videos bleiben');
 }
 
-// 8. Protokoll behält nur die letzten 4 Antworten
+// 8. Kennzeichnung nur als kurzes Etikett („Gesponsert“, „Gesponsert · Wingo“), nicht als Satzanfang
+{
+  const beschreibung = item('video_metadata.eml', [...f(1, s('Mein Video über Reisen')), ...f(2, s('Sponsored by NordVPN – hol dir 70 % Rabatt'))]);
+  const kurz = item('video_metadata_2.eml', [...f(1, s('Zweites Video')), ...f(2, s('Gesponsert von Wingo'))]);
+  const out = await run(next([organic, beschreibung, kurz]), new Map());
+  ok(has(out, 'Sponsored by NordVPN') && has(out, 'Gesponsert von Wingo'), 'Beschreibung, die mit „Sponsored by …“ beginnt, bleibt stehen');
+}
+
+// 9. Spurensuche: ein Wort aus der Anzeige finden und die Fundstelle beschreiben (ohne Inhalte)
+const searchStore = (word, ms = 600000) => new Map([['werbefrei.feed.search', JSON.stringify({ word, t: Date.now(), until: Date.now() + ms })]]);
+{
+  const mystery = item('mystery_promo.eml', [...f(1, s('Wingo Mobile')), ...f(2, s('Jetzt einkaufen')), ...f(3, s('https://www.wingo.ch/abo?x=1'))]);
+  const store = searchStore('wingo');
+  await run(home([organic, mystery, organic]), store, 'browse');
+  const sr = JSON.parse(store.get('werbefrei.feed.search') || '{}');
+  const c = (sr.checked || [])[0] || {};
+  const hit = (sr.hits || [])[0] || {};
+  const entry = (hit.e || [])[0] || {};
+  ok(c.ep === 'browse' && c.n >= 1 && c.out === true, 'Spurensuche: Wort gefunden, nach dem Filter noch da');
+  ok(/50195462>1\[2\/3\]>153515154>172660663/.test(hit.p || ''), `Spurensuche: Pfad zeigt auf den 2. von 3 Feed-Einträgen (${hit.p})`);
+  ok(hit.leaf === 'WORT' && /eml:mystery_promo\.eml/.test(entry.skel || '') && /WORT/.test(entry.skel || '') && /txt15/.test(entry.skel || ''), 'Spurensuche: Bauplan des Eintrags mit Vorlage, Fundstelle und Textlängen');
+  ok((entry.sibs || []).some((x) => x.startsWith('▶ 2: mystery_promo.eml')) && (entry.sibs || []).some((x) => x.startsWith('1: video_lockup.eml')), 'Spurensuche: Nachbar-Einträge zum Vergleich');
+  const raw = store.get('werbefrei.feed.search');
+  ok(!/Jetzt einkaufen|Mobile|Normales Video|abo\?x/.test(raw) && raw.length < 20000, 'Spurensuche speichert keine Texte und bleibt klein');
+}
+{
+  const temu = item('promoted_video_lockup.eml', [...f(2, s('Gesponsert · Temu')), ...f(3, s('Ansehen'))]);
+  const store = searchStore('Temu');
+  await run(home([organic, temu]), store, 'browse');
+  const sr = JSON.parse(store.get('werbefrei.feed.search') || '{}');
+  ok(sr.checked && sr.checked[0].n >= 1 && sr.checked[0].out === false && sr.hits.length === 1, 'Spurensuche: erkannte Anzeige wird als „entfernt“ gemeldet');
+}
+{
+  const store = searchStore('Wingo', -1000); // abgelaufen
+  await run(home([organic]), store, 'browse');
+  ok(!JSON.parse(store.get('werbefrei.feed.search')).checked, 'Abgelaufene Spurensuche zeichnet nichts mehr auf');
+}
+
+// 10. Läufe und Fehler werden für den Bericht festgehalten
+{
+  const store = new Map();
+  await run(home([organic]), store, 'browse');
+  await run([0xff, 0xff, 0xff, 0x01], store, 'browse'); // kaputte Antwort
+  const runs = JSON.parse(store.get('werbefrei.feed.runs') || '{}');
+  const errs = JSON.parse(store.get('werbefrei.feed.errors') || '{}');
+  ok(runs.eps && runs.eps.browse && runs.eps.browse.n >= 1 && /^werbefrei-\d+$/.test(runs.v), 'Läufe pro Schnittstelle werden gezählt');
+  ok(Array.isArray(errs.list) && errs.list.length >= 1 && errs.list[0].w === 'Ki', 'Fehler im Skript werden festgehalten');
+}
+
+// 11. Protokoll behält nur die letzten 4 Antworten
 {
   const store = new Map();
   for (let i = 0; i < 6; i++) await run(next([organic]), store);

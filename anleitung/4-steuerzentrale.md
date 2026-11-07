@@ -63,7 +63,15 @@ Das geht erst, wenn Surge nach [Schritt 2](2-surge-youtube.md) eingerichtet ist,
 | Rot mit Kreuz | **Schlüssel passt nicht** |
 | Grau | **Surge ist aus** oder noch nicht eingerichtet |
 
-Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschlüsselt und gefiltert wird. Das **Feed-Protokoll** darunter zeigt für die letzten Startseiten- und Video-Antworten, welche Einträge als Werbung entfernt wurden (✂︎) und ob danach noch Werbe-Merkmale übrig sind. Es enthält nur Vorlagen-Namen und Größen, keine Titel. Siehst du trotzdem eine Anzeige, tippe direkt danach auf **Bericht kopieren** und schick den Text weiter. Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
+Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschlüsselt und gefiltert wird. Das **Feed-Protokoll** darunter zeigt für die letzten Startseiten- und Video-Antworten, welche Einträge als Werbung entfernt wurden (✂︎) und ob danach noch Werbe-Merkmale übrig sind. Es enthält nur Vorlagen-Namen und Größen, keine Titel. Siehst du trotzdem eine Anzeige, tippe direkt danach auf **Bericht kopieren** und schick den Text weiter. Kommt trotzdem Werbung, hilft **Werkzeuge → Werbung melden**:
+
+1. Ein Wort aus der Anzeige eintippen, am besten den Firmennamen unter „Gesponsert“, und **Spurensuche starten** tippen.
+2. In YouTube die Startseite nach unten ziehen und scrollen, bis die Anzeige wieder auftaucht.
+3. Zurück in Werbefrei auf **Bericht erstellen** und dann auf **Bericht kopieren** tippen und den Text weiterschicken.
+
+Der Bericht zeigt, wo genau die Anzeige in der YouTube-Antwort steckt und ob der Filter sie erwischt hat. Er enthält auch, welche Fassung des Skripts lief, ob Fehler auftraten und welche YouTube-Schnittstellen Surge gesehen hat. Gespeichert werden nur Feldnummern, Größen, Vorlagen- und Server-Namen, keine Titel oder Texte, nur dein Suchwort.
+
+Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
 
 ## Sicherheit
 

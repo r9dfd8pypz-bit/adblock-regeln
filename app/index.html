@@ -126,6 +126,9 @@
   <section class="section">
     <h3 class="section-header">Werkzeuge</h3>
     <ul class="list">
+      <li><button type="button" class="row row-link" data-action="adreport">
+        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
+        <span class="row-text"><strong>Werbung melden</strong><small>Genauer Bericht, wenn trotzdem Werbung kommt</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
       <li><button type="button" class="row row-link" data-action="diag">
         <span class="tile" style="--tile: var(--indigo)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
         <span class="row-text"><strong>YouTube-Diagnose</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
@@ -178,6 +181,37 @@
       <button type="button" class="pill" id="btn-diag-copy" disabled>Bericht kopieren</button>
     </div>
     <pre class="code diag" id="diag-out" hidden></pre>
+  </div>
+</dialog>
+
+<!-- Werbung melden: Spurensuche + genauer Bericht -->
+<dialog class="sheet" id="dlg-adreport" aria-labelledby="dlg-adreport-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-adreport-title">Werbung melden</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
+  </header>
+  <div class="sheet-body help">
+    <ol class="list text-list">
+      <li>Ein Wort aus der Anzeige eintippen, am besten den <strong>Firmennamen</strong> unter „Gesponsert“ (z. B. „Wingo“), und <strong>Spurensuche starten</strong> tippen.</li>
+      <li>Zu YouTube wechseln, die Startseite <strong>nach unten ziehen</strong> (neu laden) und scrollen, bis die Anzeige wieder auftaucht.</li>
+      <li>Zurück hierher, auf <strong>Bericht erstellen</strong> und dann auf <strong>Bericht kopieren</strong> tippen und mir den Text schicken.</li>
+    </ol>
+    <ul class="list">
+      <li class="field"><label for="ar-word">Wort aus der Anzeige</label>
+        <span class="field-inline"><input id="ar-word" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="z. B. Wingo" maxlength="40"></span></li>
+      <li class="row"><span class="row-text"><strong>Spurensuche</strong><small id="ar-status">–</small></span></li>
+    </ul>
+    <div class="pill-row">
+      <button type="button" class="pill" id="btn-ar-start">Spurensuche starten</button>
+      <button type="button" class="pill" id="btn-ar-stop">Beenden</button>
+    </div>
+    <div class="pill-row">
+      <button type="button" class="pill" id="btn-ar-build">Bericht erstellen</button>
+      <button type="button" class="pill" id="btn-ar-copy" disabled>Bericht kopieren</button>
+    </div>
+    <pre class="code diag" id="ar-out" hidden></pre>
+    <p class="section-footer">Die Spurensuche läuft 20 Minuten. Gespeichert werden nur Fundstellen, also Feldnummern, Größen, Vorlagen-Namen und Server-Namen. Videotitel oder andere Texte werden nicht gespeichert, nur dein Suchwort. Alles bleibt in Surge auf diesem iPhone, bis du den Bericht selbst kopierst.</p>
   </div>
 </dialog>
 

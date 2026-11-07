@@ -224,6 +224,36 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await shot(page, '8-hell-diagnose.png');
   await page.click('#dlg-diag [data-close]');
 
+  // Werbung melden: Spurensuche starten, Bericht erstellen
+  await page.click('[data-action="adreport"]');
+  ok(await page.isVisible('#dlg-adreport'), 'Werbung melden öffnet sich als eigenes Blatt');
+  await page.waitForFunction(() => /Keine aktiv/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
+  ok(true, 'Spurensuche ist zu Beginn aus');
+  await page.fill('#ar-word', 'Wingo');
+  await page.click('#btn-ar-start');
+  await page.waitForFunction(() => /Sucht nach „Wingo“/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
+  const gestartet = JSON.parse(surge.store.get('werbefrei.feed.search') || '{}');
+  ok(gestartet.word === 'Wingo' && gestartet.until > Date.now() + 15 * 60000, 'Spurensuche legt Suchwort für 20 Minuten in Surge ab');
+  surge.store.set('werbefrei.feed.search', JSON.stringify({ ...gestartet, v: 'werbefrei-5',
+    checked: [{ t: Date.now(), ep: 'browse', len: 830000, n: 1, out: true }],
+    hits: [{ p: '9>58173949>1>58174010>4>49399797>1>50195462>1[7/20]>153515154', leaf: 'WORT', ep: 'browse', t: Date.now(), out: true,
+      e: [{ at: 9, i: 7, n: 20, skel: '{153515154{2{183314536{1:eml:mystery_promo.eml}}}}', sibs: ['6: video_lockup.eml·5KB', '▶ 7: mystery_promo.eml·7KB·WORT'] }] }] }));
+  surge.store.set('werbefrei.feed.runs', JSON.stringify({ v: 'werbefrei-5', t: Date.now(), eps: { browse: { n: 3, c: 3, t: Date.now(), ms: 80, len: 830000, ch: true } } }));
+  surge.store.set('werbefrei.feed.errors', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-5', w: 'WfTop', e: 'Testfehler' }] }));
+  await page.click('#btn-ar-build');
+  await page.waitForFunction(() => /Werbe-Bericht/.test(document.getElementById('ar-out').textContent), null, { timeout: 12000 });
+  const adr = await page.textContent('#ar-out');
+  ok(adr.includes('Fundstelle 1 · browse') && adr.includes('NOCH DA') && adr.includes('Pfad: 9>58173949') && adr.includes('Eintrag 7 von 20 (Ebene 9)') && adr.includes('▶ 7: mystery_promo.eml'), 'Werbe-Bericht zeigt Fundstelle, Pfad, Bauplan und Nachbarn');
+  ok(adr.includes('Skript-Läufe (Stand werbefrei-5): browse 3×') && adr.includes('WfTop: Testfehler'), 'Werbe-Bericht zeigt Skript-Läufe und Fehler');
+  ok(adr.includes('browse: 1× · verändert 1') && adr.includes('nicht entschlüsselt: 1×') && !adr.includes('geheim'), 'Werbe-Bericht fasst Surges YouTube-Anfragen zusammen, ohne Abfrage-Parameter');
+  ok(adr.includes('Feed-Protokoll (neueste zuerst):'), 'Werbe-Bericht enthält das Feed-Protokoll');
+  ok(await page.isEnabled('#btn-ar-copy'), 'Werbe-Bericht kann kopiert werden');
+  await page.click('#btn-ar-stop');
+  await page.waitForFunction(() => /Beendet: „Wingo“/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
+  ok(JSON.parse(surge.store.get('werbefrei.feed.search')).hits.length === 1, 'Beenden stoppt die Suche und behält die Fundstellen');
+  await shot(page, '8b-hell-werbung-melden.png');
+  await page.click('#dlg-adreport [data-close]');
+
   // Verlauf
   await page.click('[data-action="log"]');
   ok(await page.isVisible('#dlg-log'), 'Verlauf öffnet sich als eigenes Blatt');
