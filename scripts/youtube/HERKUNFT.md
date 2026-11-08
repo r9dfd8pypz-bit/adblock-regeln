@@ -6,7 +6,7 @@
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/65075cdb388fc5e3094afd7e7314c67b243f3525/Script/Youtube/youtube.response.js |
 | Commit | `65075cdb388fc5e3094afd7e7314c67b243f3525` vom 19.07.2026 („#100 fix ad judgment“) |
-| SHA-256: | `c2a06cb2ad28a952edda97b537a64b375371fb3f17826f59c6066369bfe94db7` (geänderte Fassung, Stand „werbefrei-5“) |
+| SHA-256: | `9605977a82dff8fea79f0aa0e6579160d428c9f73e8dc303d55106fd6c5381e8` (geänderte Fassung, Stand „werbefrei-6“) |
 | Original-Prüfsumme | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` (unverändert vom Autor) |
 | Geprüft am | 02.11.2026 |
 
@@ -58,7 +58,19 @@ Zusätzlich geändert:
 - **Kennzeichnung strenger:** Ein Text zählt nur noch als „Gesponsert“-Etikett, wenn er höchstens 48 Byte lang ist und nach dem Wort endet oder ein Trenner folgt (· • | - – —). Eine Videobeschreibung wie „Sponsored by NordVPN – …“ oder „Gesponsert von …“ bleibt so stehen.
 - **Entitäts-Schlüssel** zählen nur noch in Base64-Schreibweise, zum Beispiel nicht bei Vorlagen-Namen.
 
-`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 25 Prüfungen fehl, mit der geänderten Fassung keine.
+### Nachtrag „werbefrei-6“ (08.11.2026): Feed-Einträge in unbekanntem Aufbau
+
+Anlass: Werbe-Bericht vom 08.11.2026, 11:42, zur Anzeige „BH ohne Bügel · Gesponsert · Velura Switzerland“. Eine Startseiten-Antwort von 623 KB hatte **0 erkannte Einträge**, nach dem Filter blieben `pagead`, `googleadservices`, `/aclk?` und zweimal die Kennzeichnung übrig. Die Feed-Einträge standen in einem Feld, das das Schema des Originals nicht kennt, und zwar innerhalb des Inhalts, nicht ganz oben. Die nächste Antwort, die übliche Fortsetzung, wurde normal gefiltert.
+
+Zusätzlich geändert:
+- **Tiefe Suche:** Nach dem bisherigen Filter werden alle unbekannten Felder der ganzen Antwort mit Werbe-Merkmalen untersucht, nicht nur die obersten.
+  - Darin werden Listen von Feed-Einträgen gesucht, also Einträge mit `elementRenderer` (Feld 153515154) direkt oder eine Ebene tiefer.
+  - Entfernt wird ein Eintrag aus so einer Liste nur, wenn er Werbe-Merkmale trägt und daneben mindestens ein normaler Feed-Eintrag steht, oder wenn er `pagead` enthält. So geht das Original auch sonst vor.
+  - Feed-Einträge selbst werden nie teilweise beschnitten, Listen ohne Feed-Einträge (z. B. Beschreibungen) bleiben unangetastet.
+- **Oberste Felder:** Findet die Listen-Regel dort nichts, wird dieselbe tiefe Suche versucht.
+- **Protokoll:** Neue Zeilen „tief feld N“ (✂︎ mit Anzahl entfernter Einträge, ⚠︎ wenn nichts entfernt werden konnte).
+
+`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen, unbekannten Aufbau mit und ohne Hülle und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 29 Prüfungen fehl, mit der geänderten Fassung keine.
 
 ## Warum eine Kopie statt eines Links zum Original?
 

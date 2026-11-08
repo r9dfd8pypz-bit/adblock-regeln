@@ -222,7 +222,44 @@ const searchStore = (word, ms = 600000) => new Map([['werbefrei.feed.search', JS
   ok(Array.isArray(errs.list) && errs.list.length >= 1 && errs.list[0].w === 'Ki', 'Fehler im Skript werden festgehalten');
 }
 
-// 11. Protokoll behält nur die letzten 4 Antworten
+// 11. Startseite in unbekanntem Aufbau (Bericht vom 8.11.: „0 Einträge … übrig: pagead … Kennzeichnung ×2“)
+//     Die Einträge stecken in einem unbekannten Feld innerhalb des Inhalts, nicht in der bekannten Abschnittsliste.
+{
+  const adItem = (vc) => item('video_display_button_group_layout.eml', vc,
+    f(9, s(`https://www.googleadservices.com/pagead/aclk?sa=L&ai=${'v'.repeat(1200)}`)));
+  const velura = adItem([...f(1, s('BH ohne Bügel')), ...f(2, s('Gesponsert · Velura Switzerland')), ...f(3, s('Zur Website'))]);
+  const lockup = (t) => item('video_lockup_with_attachment.eml', f(999, s(`${t} `.repeat(30))));
+  // Variante A: Einträge direkt in einer Liste (Feld 1) eines unbekannten Feldes im Inhalt
+  const gridA = f(9, f(49907540, [...lockup('Video eins'), ...velura, ...lockup('Video zwei')]));
+  const storeA = new Map();
+  const outA = await run(gridA, storeA, 'browse');
+  ok(!has(outA, 'Velura') && !has(outA, 'BH ohne') && has(outA, 'Video eins') && has(outA, 'Video zwei'), 'Unbekannter Aufbau: Anzeige entfernt, Videos bleiben');
+  const lastA = (JSON.parse(storeA.get('werbefrei.feed.diag') || 'null') || { list: [{ items: [] }] }).list[0];
+  ok(lastA.items.some((x) => x.n === 'tief feld 49907540' && x.x && x.r === 1) && (lastA.rm || []).length === 0 && lastA.rg === 0, 'Protokoll: „tief feld …“ bereinigt, danach nichts mehr übrig');
+  let gueltig = false;
+  try { const top = felder(Buffer.from(outA, 'latin1')); gueltig = felder(felder(top[9][0])[49907540][0])[1].length === 2; } catch { /* kaputt */ }
+  ok(gueltig, 'Unbekannter Aufbau: Antwort bleibt gültiges protobuf (2 Einträge übrig)');
+
+  // Variante B: Einträge in einer Hülle (Liste > Hülle > elementRenderer), dazu ein Werbeplatz ohne elementRenderer
+  const wrap = (it) => f(1, f(7, felder(Buffer.from(it))[1][0]));
+  const adSlot = f(1, f(61234567, s(`https://www.youtube.com/pagead/adview?ai=${'q'.repeat(1200)}`)));
+  const gridB = f(10, f(49907540, f(2, [...wrap(lockup('Video drei')), ...wrap(velura), ...adSlot, ...wrap(lockup('Video vier'))])));
+  const outB = await run(gridB, new Map(), 'browse');
+  ok(!has(outB, 'Velura') && !has(outB, 'adview') && has(outB, 'Video drei') && has(outB, 'Video vier'), 'Unbekannter Aufbau mit Hülle: Anzeige und Werbeplatz entfernt, Videos bleiben');
+
+  // Gegenprobe: unbekanntes Feld mit Liste ohne Feed-Einträge (z. B. Beschreibung) bleibt unangetastet
+  const panel = (t) => f(1, [...f(2, s(t)), ...f(3, s('z'.repeat(400)))]);
+  const panels = f(9, f(49907541, [...panel('Gesponsert'), ...panel('Kapitel')]));
+  const outC = await run(panels, new Map(), 'browse');
+  ok(has(outC, 'Gesponsert') && has(outC, 'Kapitel'), 'Unbekannte Liste ohne Feed-Einträge bleibt unangetastet');
+
+  // Gegenprobe: einzelner Eintrag nur mit Kennzeichnung, ohne normalen Nachbarn und ohne pagead, bleibt (vorsichtig)
+  const solo = f(9, f(49907542, item('video_metadata.eml', [...f(1, s('Gesponsert')), ...f(2, s('x'.repeat(400)))])));
+  const outD = await run(solo, new Map(), 'browse');
+  ok(has(outD, 'video_metadata.eml'), 'Einzelner Eintrag ohne Werbeadresse und ohne Nachbarn bleibt');
+}
+
+// 12. Protokoll behält nur die letzten 4 Antworten
 {
   const store = new Map();
   for (let i = 0; i < 6; i++) await run(next([organic]), store);
