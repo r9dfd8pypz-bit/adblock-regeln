@@ -259,7 +259,22 @@ const searchStore = (word, ms = 600000) => new Map([['werbefrei.feed.search', JS
   ok(has(outD, 'video_metadata.eml'), 'Einzelner Eintrag ohne Werbeadresse und ohne Nachbarn bleibt');
 }
 
-// 12. Protokoll behält nur die letzten 4 Antworten
+// 12. get_watch (Video-Seite in einem Stück: Player + Next) – Bericht vom 15.11.: „übrig: pagead … Kennzeichnung ×4“
+{
+  const panelAd = f(1, [...f(2, s('Gesponsert · Shop')), ...f(3, s(`https://www.googleadservices.com/pagead/aclk?${'k'.repeat(400)}`))]);
+  const panelOk = f(1, [...f(2, s('Beschreibung')), ...f(3, s('d'.repeat(400)))]);
+  const nextMsg = [...next([organic, shopping]).slice(0), ...f(14, [...panelOk, ...panelAd])];
+  // next() liefert Feld 7 (Inhalt); als Next-Nachricht in get_watch: Watch{1: Content{3: Next}}
+  const watch = f(1, f(3, nextMsg));
+  const store = new Map();
+  const out = await run(watch, store, 'get_watch');
+  ok(!has(out, 'shopping_carousel_ad.eml') && has(out, 'video_lockup.eml'), 'get_watch: Werbe-Eintrag unter dem Video entfernt');
+  ok(!has(out, 'Gesponsert · Shop') && has(out, 'Beschreibung'), 'get_watch: Werbung im obersten unbekannten Feld entfernt, Beschreibung bleibt');
+  const last = (JSON.parse(store.get('werbefrei.feed.diag') || 'null') || { list: [{}] }).list[0];
+  ok(last.ep === 'get_watch' && (last.rm || []).length === 0 && last.rg === 0, 'get_watch: danach nichts mehr übrig');
+}
+
+// 13. Protokoll behält nur die letzten 4 Antworten
 {
   const store = new Map();
   for (let i = 0; i < 6; i++) await run(next([organic]), store);

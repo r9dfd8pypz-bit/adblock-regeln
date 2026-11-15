@@ -6,7 +6,7 @@
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/65075cdb388fc5e3094afd7e7314c67b243f3525/Script/Youtube/youtube.response.js |
 | Commit | `65075cdb388fc5e3094afd7e7314c67b243f3525` vom 19.07.2026 („#100 fix ad judgment“) |
-| SHA-256: | `9605977a82dff8fea79f0aa0e6579160d428c9f73e8dc303d55106fd6c5381e8` (geänderte Fassung, Stand „werbefrei-6“) |
+| SHA-256: | `29d139f6f715e592e3c55ad70a6a363b1660dfbf35c40c26c36eba8e00f6265f` (geänderte Fassung, Stand „werbefrei-7“) |
 | Original-Prüfsumme | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` (unverändert vom Autor) |
 | Geprüft am | 02.11.2026 |
 
@@ -70,7 +70,13 @@ Zusätzlich geändert:
 - **Oberste Felder:** Findet die Listen-Regel dort nichts, wird dieselbe tiefe Suche versucht.
 - **Protokoll:** Neue Zeilen „tief feld N“ (✂︎ mit Anzahl entfernter Einträge, ⚠︎ wenn nichts entfernt werden konnte).
 
-`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen, unbekannten Aufbau mit und ohne Hülle und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 29 Prüfungen fehl, mit der geänderten Fassung keine.
+### Nachtrag „werbefrei-7“ (15.11.2026): ganzer Filter auch für get_watch
+
+Anlass: Sponsor-Bericht vom 15.11.2026, 16:18. Eine `get_watch`-Antwort (Video-Seite mit Player und Empfehlungen in einem Stück) hatte nach dem Filter noch `pagead`, `googleadservices`, `doubleclick.net`, `/aclk?` und viermal die Kennzeichnung. Das Original wendet bei `get_watch` auf den Next-Teil nur die Eintrags-Prüfung an. Unsere Zusätze (oberste unbekannte Felder, Abschnitte, tiefe Suche) liefen dort nicht.
+
+Geändert: Bei `get_watch` laufen für den Next-Teil jetzt dieselben Schritte wie bei `next`.
+
+`node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen, unbekannten Aufbau mit und ohne Hülle, `get_watch` und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 32 Prüfungen fehl, mit der geänderten Fassung keine.
 
 ## Warum eine Kopie statt eines Links zum Original?
 

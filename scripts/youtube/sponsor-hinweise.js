@@ -16,7 +16,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 9; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 10; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
@@ -27,7 +27,7 @@
   const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
   const RUNS_KEY = 'werbefrei.sponsor.runs';         // { next, ping, v } wann das Skript zuletzt lief
   const PINGS_KEY = 'werbefrei.sponsor.pings';       // Aufbau der letzten Meldungen (nur Feldnamen, keine Werte)
-  const LINK_KEY = 'werbefrei.sponsor.link';         // Art des Sprung-Links: kurz | web | app (wählt die Werbefrei-App)
+  const LINK_KEY = 'werbefrei.sponsor.link';         // Art des Sprung-Links: kurz | mix | kurzmix | mobil | appmix (alt: web | app), wählt die Werbefrei-App
   const CACHE_MS = 30 * 60 * 1000;
   const PING_FRESH_MS = 3 * 24 * 60 * 60 * 1000; // so lange gelten Positions-Meldungen als „funktionieren“
   const TIMEOUT_MS = 4500;
@@ -190,11 +190,20 @@
   // Sprung-Link: Surge öffnet youtube:// nicht, deshalb standardmäßig ein normaler YouTube-Link,
   // den iOS direkt an die YouTube-App weitergibt.
   const linkStyle = (() => { try { return $persistentStore.read(LINK_KEY) || 'kurz'; } catch (e) { return 'kurz'; } })();
+  // Läuft das Video schon, ignoriert die YouTube-App einen einfachen Link mit Zeitangabe.
+  // Die Varianten mit Mix-Playlist (list=RD…) oder anderer Adresse sollen ein Neuladen erzwingen;
+  // welche auf dem iPhone springt, zeigt der Sprung-Test in der Werbefrei-App (A–E).
   const jumpUrl = (id, sec) => {
     const t = Math.ceil(sec + JUMP_MARGIN);
-    if (linkStyle === 'app') return `youtube://www.youtube.com/watch?v=${id}&t=${t}s`;
-    if (linkStyle === 'web') return `https://www.youtube.com/watch?v=${id}&t=${t}s`;
-    return `https://youtu.be/${id}?t=${t}`;
+    switch (linkStyle) {
+      case 'mix': return `https://www.youtube.com/watch?v=${id}&list=RD${id}&start_radio=1&t=${t}s`;
+      case 'kurzmix': return `https://youtu.be/${id}?list=RD${id}&t=${t}`;
+      case 'mobil': return `https://m.youtube.com/watch?v=${id}&t=${t}s`;
+      case 'appmix': return `youtube://www.youtube.com/watch?v=${id}&list=RD${id}&t=${t}s`;
+      case 'app': return `youtube://www.youtube.com/watch?v=${id}&t=${t}s`;
+      case 'web': return `https://www.youtube.com/watch?v=${id}&t=${t}s`;
+      default: return `https://youtu.be/${id}?t=${t}`;
+    }
   };
   const label = (s) => LABELS[s.category] || 'Sponsor';
   const list = (segs) => segs.map((s) => `${fmt(s.start)}–${fmt(s.end)}`).join(', ');

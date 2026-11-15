@@ -83,8 +83,8 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 9 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
-  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 9, 'Hinterlässt einen Zeitstempel für „Video-Start“');
+  ok(st.step === 'bereit' && st.v === 10 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 10, 'Hinterlässt einen Zeitstempel für „Video-Start“');
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
@@ -264,7 +264,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 }
 
 // ---------- Andere Link-Arten (in der App wählbar) ----------
-for (const [style, expected] of [['web', `https://www.youtube.com/watch?v=${ID}&t=128s`], ['app', `youtube://www.youtube.com/watch?v=${ID}&t=128s`]]) {
+for (const [style, expected] of [
+  ['web', `https://www.youtube.com/watch?v=${ID}&t=128s`], ['app', `youtube://www.youtube.com/watch?v=${ID}&t=128s`],
+  ['mix', `https://www.youtube.com/watch?v=${ID}&list=RD${ID}&start_radio=1&t=128s`], ['kurzmix', `https://youtu.be/${ID}?list=RD${ID}&t=128`],
+  ['mobil', `https://m.youtube.com/watch?v=${ID}&t=128s`], ['appmix', `youtube://www.youtube.com/watch?v=${ID}&list=RD${ID}&t=128s`],
+]) {
   const sx = segStore();
   sx.set('werbefrei.sponsor.link', style);
   const r = await run({ url: ping(ID, '80.2'), store: sx });

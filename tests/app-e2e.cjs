@@ -165,12 +165,14 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.waitForFunction(() => true);
   await page.waitForTimeout(300);
   ok(surge.store.get('werbefrei.sponsor.debug') === 'true', 'Testmodus lässt sich in der App einschalten');
-  await page.click('[data-link-style="web"]');
+  await page.click('[data-link-style="mix"]');
   await page.waitForTimeout(300);
-  ok(surge.store.get('werbefrei.sponsor.link') === 'web', 'Sprung-Link-Art lässt sich in der App wählen');
+  ok(surge.store.get('werbefrei.sponsor.link') === 'mix', 'Sprung-Link-Art lässt sich in der App wählen');
   await page.click('#btn-sp-jumptest');
   await page.waitForTimeout(300);
-  ok(surge.notes.length === 3 && surge.notes.map((n) => n[3].url).join(' ').includes('youtu.be/dQw4w9WgXcQ?t=60'), 'Sprung-Test schickt drei Mitteilungen mit verschiedenen Links');
+  const jt = surge.notes.map((n) => `${n[0]} ${n[3].url}`);
+  ok(surge.notes.length === 6 && surge.notes[5][0] === 'Sprung-Test · Start' && jt.some((x) => x.startsWith('Sprung-Test A → 1:00 https://youtu.be/dQw4w9WgXcQ?t=60')) && jt.some((x) => x.includes('list=RDdQw4w9WgXcQ')),
+    'Sprung-Test: Start plus fünf Varianten mit verschiedenen Zielen');
   surge.notes.length = 0;
   await page.click('#btn-sp-test');
   await page.waitForTimeout(300);

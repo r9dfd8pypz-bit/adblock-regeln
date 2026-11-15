@@ -241,12 +241,20 @@
     </div>
     <h3 class="section-header">Sprung-Link</h3>
     <div class="segmented" role="group" aria-label="Art des Sprung-Links">
-      <button type="button" data-link-style="kurz">1 · youtu.be</button>
-      <button type="button" data-link-style="web">2 · youtube.com</button>
-      <button type="button" data-link-style="app">3 · App-Link</button>
+      <button type="button" data-link-style="kurz" aria-label="A: youtu.be">A</button>
+      <button type="button" data-link-style="mix" aria-label="B: youtube.com mit Mix">B</button>
+      <button type="button" data-link-style="kurzmix" aria-label="C: youtu.be mit Mix">C</button>
+      <button type="button" data-link-style="mobil" aria-label="D: m.youtube.com">D</button>
+      <button type="button" data-link-style="appmix" aria-label="E: App-Link mit Mix">E</button>
     </div>
     <div class="pill-row"><button type="button" class="pill" id="btn-sp-jumptest">Sprung-Test senden</button></div>
-    <p class="section-footer">„Sprung-Test senden“ schickt drei Mitteilungen (Test 1, 2, 3). Tippe nacheinander darauf: Welche öffnet die YouTube-App bei 1:00? Diese Nummer hier oben auswählen.</p>
+    <p class="section-footer">Läuft ein Video schon, ignoriert YouTube manche Sprung-Links. So findest du die richtige Art:</p>
+    <ol class="list text-list">
+      <li><strong>Sprung-Test senden</strong> tippen. Es kommen sechs Mitteilungen.</li>
+      <li>Zuerst <strong>Start</strong> antippen. Das Testvideo startet bei 0:05.</li>
+      <li>Das Video laufen lassen, die Mitteilungszentrale herunterziehen und nacheinander <strong>A bis E</strong> antippen. A will auf 1:00, B auf 1:30, C auf 2:00, D auf 2:30, E auf 3:00.</li>
+      <li>Hier oben den <strong>ersten Buchstaben</strong> wählen, der wirklich gesprungen ist.</li>
+    </ol>
 
     <div class="advice" id="sp-advice" hidden></div>
     <h3 class="section-header">Röntgenblick (direkt aus Surge)</h3>

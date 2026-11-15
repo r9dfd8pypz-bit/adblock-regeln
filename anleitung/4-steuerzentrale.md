@@ -94,7 +94,7 @@ Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen 
 3. **Beginnt eine Sponsor-Stelle in den nächsten 35 Sekunden**, hält der Wächter diese Meldung so lange an und meldet sich **pünktlich zum Beginn**: *„⏭ Sponsor beginnt jetzt · 54 s · Tippen = weiter bei 2:06“*. Danach geht die Meldung unverändert an YouTube.
 4. **Läuft eine Stelle schon**, kommt die Mitteilung sofort: *„⏭ Sponsor läuft – noch 46 s“*.
 
-Tippst du auf das Banner, springt YouTube 1 Sekunde hinter das Ende der Stelle.
+Tippst du auf das Banner, springt YouTube 1 Sekunde hinter das Ende der Stelle. Läuft das Video schon, ignoriert YouTube manche Sprung-Links. Welche Link-Art auf deinem iPhone wirklich springt, findest du unter **Werkzeuge → Sponsor-Hinweise prüfen → Sprung-Test** heraus. Dort wählst du dann den passenden Buchstaben A bis E.
 
 Einrichten:
 - In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen, dann den Schalter einschalten. Nach Änderungen am Modul: **Werkzeuge → Sponsor-Hinweise prüfen → Modul aktualisieren** und in Surge bestätigen. „Skript neu laden“ aktualisiert nur das Skript, nicht das Modul.

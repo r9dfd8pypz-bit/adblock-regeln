@@ -23,12 +23,18 @@
   const SPONSOR_PINGS_KEY = 'werbefrei.sponsor.pings';
   const SPONSOR_LINK_KEY = 'werbefrei.sponsor.link';
   const SPONSOR_LOG_KEY = 'werbefrei.sponsor.log';
-  // Test-Video für den Sprung-Test (öffentlich, lange verfügbar), Sprung zu 1:00
-  const JUMP_TESTS = [
-    ['1', 'https://youtu.be/dQw4w9WgXcQ?t=60'],
-    ['2', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=60s'],
-    ['3', 'youtube://www.youtube.com/watch?v=dQw4w9WgXcQ&t=60s'],
+  // Sprung-Test mit dem LAUFENDEN Video: Zuerst „Start“ öffnet das Testvideo (öffentlich, lange verfügbar),
+  // dann springt jede Variante an eine andere Stelle. So sieht man, welche Link-Art die App neu laden lässt.
+  const TEST_VIDEO = 'dQw4w9WgXcQ';
+  const JUMP_START = `https://youtu.be/${TEST_VIDEO}?t=5`;
+  const JUMP_TESTS = [ // [Buchstabe, Link-Art im Sponsor-Skript, Ziel, Link]
+    ['A', 'kurz', '1:00', `https://youtu.be/${TEST_VIDEO}?t=60`],
+    ['B', 'mix', '1:30', `https://www.youtube.com/watch?v=${TEST_VIDEO}&list=RD${TEST_VIDEO}&start_radio=1&t=90s`],
+    ['C', 'kurzmix', '2:00', `https://youtu.be/${TEST_VIDEO}?list=RD${TEST_VIDEO}&t=120`],
+    ['D', 'mobil', '2:30', `https://m.youtube.com/watch?v=${TEST_VIDEO}&t=150s`],
+    ['E', 'appmix', '3:00', `youtube://www.youtube.com/watch?v=${TEST_VIDEO}&list=RD${TEST_VIDEO}&t=180s`],
   ];
+  const linkName = (style) => { const t = JUMP_TESTS.find((x) => x[1] === style); return t ? `${t[0]} (${t[1]})` : style === 'web' ? '2 (alt, youtube.com)' : style === 'app' ? '3 (alt, App-Link)' : 'A (kurz)'; };
   const RULE_START = 'youtube.sponsor.v7.start';
   const RULE_PLAYBACK = 'youtube.sponsor.v7.wiedergabe';
   const OLD_RULES = ['youtube.sponsor', 'youtube.sponsor.position', 'youtube.sponsor.v6.start', 'youtube.sponsor.v6.wiedergabe'];
@@ -937,6 +943,7 @@
       `Letztes Video: ${describeSponsor(sp)}`,
       `Stellen: ${describeSegments(sp)}`,
       `Position: ${describePosition(sp)}`,
+      `Sprung-Link: ${linkName(sp && sp.link)}`,
       `Letzte Mitteilungen:${sp && sp.log && sp.log.items && sp.log.items.length ? `\n${sp.log.items.map((x) => `  - ${sponsorLogLine(x)}`).join('\n')}` : ' noch keine'}`,
       `Abstand der Positions-Meldungen: ${describeGaps(sp)}`,
       `Anfragen: ${$('sp-r-stats').textContent}`,
@@ -1073,10 +1080,13 @@
       });
     }
     $('btn-sp-jumptest').addEventListener('click', async () => {
-      const code = JUMP_TESTS.map(([n, url]) => `$notification.post('Sprung-Test ${n}', '', 'Tippen: öffnet YouTube bei 1:00?', { action: 'open-url', url: ${JSON.stringify(url)} });`).join(' ') + ' $done({});';
+      // Rückwärts senden: In der Mitteilungszentrale steht „Start“ dann oben, darunter A bis E.
+      const post = (title, text, url) => `$notification.post(${JSON.stringify(title)}, '', ${JSON.stringify(text)}, { action: 'open-url', url: ${JSON.stringify(url)} });`;
+      const code = [...JUMP_TESTS].reverse().map(([n, , ziel, url]) => post(`Sprung-Test ${n} → ${ziel}`, `Tippen, während das Testvideo läuft: springt es auf ${ziel}?`, url)).join(' ')
+        + ' ' + post('Sprung-Test · Start', 'Zuerst hier tippen: Das Testvideo startet bei 0:05. Danach A bis E antippen.', JUMP_START) + ' $done({});';
       try {
         await backend.evaluate(code);
-        balloon('Sprung-Test gesendet', 'Drei Mitteilungen kommen. Tippe nacheinander darauf und merke dir, welche YouTube bei 1:00 öffnet.');
+        balloon('Sprung-Test gesendet', 'Sechs Mitteilungen kommen. Zuerst „Start“ antippen, dann – während das Video läuft – nacheinander A bis E und merken, welche wirklich springen.');
       } catch (e) {
         balloon('Hat nicht geklappt', errorText(e), 'bad');
       }
