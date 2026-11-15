@@ -25,14 +25,17 @@ const NEXT_URL = 'https://youtubei.googleapis.com/youtubei/v1/next?prettyPrint=f
 const ping = (id, cmt, kind = 'watchtime') =>
   `https://s.youtube.com/api/stats/${kind}?ns=yt&el=detailpage&cpn=abcDEF123&docid=${id}&ver=2&cmt=${encodeURIComponent(cmt)}&st=1&et=${encodeURIComponent(cmt)}`;
 
-function run({ url = NEXT_URL, body, reply, store = new Map(), argument }) {
+// scale: Zeitgeber im Skript laufen so viel schneller (für Wartezeiten von mehreren Sekunden); delays = angefragte Wartezeiten
+function run({ url = NEXT_URL, body, reply, store = new Map(), argument, scale }) {
   return new Promise((resolve) => {
     const notes = [];
     const calls = [];
     let doneCount = 0;
     const t0 = Date.now();
+    const delays = [];
+    const timer = scale ? (cb, ms) => { delays.push(ms); return setTimeout(cb, ms / scale); } : setTimeout;
     const ctx = vm.createContext({
-      console, setTimeout, clearTimeout,
+      console, setTimeout: timer, clearTimeout,
       $argument: argument,
       $persistentStore: { read: (k) => store.get(k) ?? null, write: (v, k) => { store.set(k, v); return true; } },
       $notification: { post: (...a) => notes.push(a) },
@@ -40,7 +43,7 @@ function run({ url = NEXT_URL, body, reply, store = new Map(), argument }) {
       __body: body,
     });
     vm.runInContext(`var $request = { url: ${JSON.stringify(url)}, method: 'POST', headers: {}, body: __body ? new Uint8Array(__body) : undefined };`, ctx);
-    ctx.$done = (r) => { doneCount++; const ms = Date.now() - t0; setTimeout(() => resolve({ notes, calls, doneCount, result: r, store, ms }), 20); };
+    ctx.$done = (r) => { doneCount++; const ms = Date.now() - t0; setTimeout(() => resolve({ notes, calls, doneCount, result: r, store, ms, delays }), 20); };
     vm.runInContext(CODE, ctx);
   });
 }
@@ -80,8 +83,8 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(segs && segs.segs[0].start === 72.5 && segs.segs[0].end === 126.4, 'Überlappende Stellen werden zusammengefasst');
   ok(r.notes.length === 0, 'Beim Öffnen keine Mitteilung (Vorschau ist aus)');
   const st = json(store, 'werbefrei.sponsor.status');
-  ok(st.step === 'bereit' && st.v === 8 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
-  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 8, 'Hinterlässt einen Zeitstempel für „Video-Start“');
+  ok(st.step === 'bereit' && st.v === 9 && !JSON.stringify(st).includes(ID), `Status ohne Video-Kennung: ${st.text}`);
+  ok(json(store, 'werbefrei.sponsor.runs').next > 0 && json(store, 'werbefrei.sponsor.runs').v === 9, 'Hinterlässt einen Zeitstempel für „Video-Start“');
   ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Anfrage an YouTube bleibt unverändert, $done genau einmal');
 }
 
@@ -98,7 +101,7 @@ const store = new Map([['werbefrei.sponsor.pos', JSON.stringify({ id: 'xxxxxxxxx
   ok(during.notes.length === 1, 'Während der Stelle: genau eine Mitteilung');
   ok(title === '⏭ Sponsor läuft – noch 46 s', `Titel: ${title}`);
   ok(text === 'Tippen = weiter bei 2:06', `Text: ${text}`);
-  ok(opt && opt.action === 'open-url' && opt.url === `https://youtu.be/${ID}?t=127`, `Sprung-Link (Standard): ${opt && opt.url}`);
+  ok(opt && opt.action === 'open-url' && opt.url === `https://youtu.be/${ID}?t=128`, `Sprung-Link (Standard): ${opt && opt.url}`);
   ok(json(store, 'werbefrei.sponsor.status').step === 'gemeldet', 'Status: gemeldet');
 
   const again = await run({ url: ping(ID, '92.0'), store });
@@ -185,8 +188,83 @@ const segStore = () => new Map([
   ok(tooEarly.notes.length === 0, 'Zu früh (über 10 s vorher): noch keine Mitteilung');
 }
 
+// ---------- v9: pünktliche Mitteilung (neues Modul erlaubt 35 s Haltezeit) ----------
+const ARG35 = JSON.stringify({ sponsor: true, selfpromo: true, interaction: false, vorschau: false, debug: false, hold: 35 });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+{
+  // Meldung bei 50.0 s, Sponsor beginnt bei 72.5 s → 22,5 s warten, dann „beginnt jetzt“
+  const s9 = segStore();
+  const r = await run({ url: ping(ID, '50.0'), store: s9, argument: ARG35, scale: 100 });
+  const hold = Math.max(...r.delays.filter((d) => d !== 4500));
+  ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor beginnt jetzt', `Pünktlich: Mitteilung zum Beginn (${r.notes[0] && r.notes[0][0]})`);
+  ok(hold > 21500 && hold <= 22200, `Wartet bis zum Beginn der Stelle (${Math.round(hold)} ms)`);
+  ok(r.notes[0] && r.notes[0][2] === '54 s · Tippen = weiter bei 2:06' && r.notes[0][3].url === `https://youtu.be/${ID}?t=128`, 'Text und Sprung mit 1 s Puffer hinter der Stelle');
+  ok(r.doneCount === 1 && Object.keys(r.result).length === 0, 'Gehaltene Meldung geht danach unverändert raus');
+  const log = json(s9, 'werbefrei.sponsor.log');
+  ok(log && log.items[0].kind === 'pünktlich' && log.items[0].s === 72.5 && log.items[0].wait > 21 && !JSON.stringify(log).includes(ID), 'Genauigkeit wird ohne Video-Kennung festgehalten');
+  const again = await run({ url: ping(ID, '75.0'), store: s9, argument: ARG35, scale: 100 });
+  ok(again.notes.length === 0, 'Danach keine zweite Mitteilung für dieselbe Stelle');
+}
+{
+  // Doppelte Geschwindigkeit: halbe Wartezeit
+  const s10 = segStore();
+  const r = await run({ url: `${ping(ID, '50.0')}&rate=2`, store: s10, argument: ARG35, scale: 100 });
+  const hold = Math.max(...r.delays.filter((d) => d !== 4500));
+  ok(r.notes.length === 1 && hold > 10500 && hold <= 11000, `Wiedergabe mit 2×: wartet nur halb so lange (${Math.round(hold)} ms)`);
+}
+{
+  // Während des Wartens kommt eine neuere Meldung (z. B. Pause oder Sprung) → die alte meldet nichts
+  const s11 = segStore();
+  const pending = run({ url: ping(ID, '50.0'), store: s11, argument: ARG35, scale: 100 });
+  await sleep(40);
+  s11.set('werbefrei.sponsor.pos', JSON.stringify({ id: ID, cmt: 52, t: Date.now() + 5, rate: 1, paused: true }));
+  const r = await pending;
+  ok(r.notes.length === 0 && json(s11, 'werbefrei.sponsor.log').items[0].kind === 'übergeben', 'Neuere Meldung übernimmt: keine veraltete Mitteilung');
+}
+{
+  // Pausiert: nichts planen
+  const s12 = segStore();
+  const r = await run({ url: `${ping(ID, '60.0')}&state=paused`, store: s12, argument: ARG35, scale: 100 });
+  ok(r.notes.length === 0 && r.delays.every((d) => d === 4500), 'Pausiert: keine Wartezeit, keine Mitteilung');
+}
+{
+  // Stumme Vorschau auf der Startseite: wird nicht ausgewertet
+  const s13 = segStore();
+  const r = await run({ url: ping(ID, '80.0').replace('el=detailpage', 'el=home') + '&muted=1', store: s13, argument: ARG35 });
+  ok(r.notes.length === 0 && json(s13, 'werbefrei.sponsor.pos').id !== ID, 'Stumme Vorschau in der Liste: keine Mitteilung, Position bleibt unberührt');
+}
+{
+  // Stelle lag ganz zwischen zwei Meldungen → als „verpasst“ festhalten
+  const s14 = segStore();
+  s14.set('werbefrei.sponsor.pos', JSON.stringify({ id: ID, cmt: 60, t: Date.now() - 80000 }));
+  const r = await run({ url: ping(ID, '130.0'), store: s14, argument: ARG35 });
+  const it = (json(s14, 'werbefrei.sponsor.log') || { items: [] }).items.find((x) => x.kind === 'verpasst');
+  ok(r.notes.length === 0 && it && it.from === 60 && it.p === 130 && it.s === 72.5, 'Ganz übersprungene Stelle wird als „verpasst“ festgehalten');
+  ok((json(s14, 'werbefrei.sponsor.log').gaps || [])[0] === 80, 'Abstand der Meldungen wird festgehalten');
+}
+{
+  // Zurückgespult vor eine schon gemeldete Stelle → darf wieder gemeldet werden
+  const s15 = segStore();
+  s15.set('werbefrei.sponsor.notified', JSON.stringify({ videos: { [ID]: { starts: [72.5], missed: [], t: Date.now() } } }));
+  const r = await run({ url: ping(ID, '40.0'), store: s15, argument: ARG35, scale: 100 });
+  ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor beginnt jetzt', 'Zurückgespult: Stelle wird erneut gemeldet');
+}
+{
+  // Altes Modul (ohne hold): kurze Wartezeit bis 5 s wird genutzt
+  const s16 = segStore();
+  const r = await run({ url: ping(ID, '70.0'), store: s16, scale: 100 });
+  ok(r.notes.length === 1 && r.notes[0][0] === '⏭ Sponsor beginnt jetzt', 'Altes Modul: Stelle in 2,5 s wird pünktlich gemeldet');
+}
+{
+  // Altes Format der gemeldeten Stellen (bis v8) wird verstanden
+  const s17 = segStore();
+  s17.set('werbefrei.sponsor.notified', JSON.stringify({ id: ID, starts: [72.5] }));
+  const r = await run({ url: ping(ID, '80.0'), store: s17 });
+  ok(r.notes.length === 0, 'Gemeldete Stellen im alten Format bleiben gemeldet');
+}
+
 // ---------- Andere Link-Arten (in der App wählbar) ----------
-for (const [style, expected] of [['web', `https://www.youtube.com/watch?v=${ID}&t=127s`], ['app', `youtube://www.youtube.com/watch?v=${ID}&t=127s`]]) {
+for (const [style, expected] of [['web', `https://www.youtube.com/watch?v=${ID}&t=128s`], ['app', `youtube://www.youtube.com/watch?v=${ID}&t=128s`]]) {
   const sx = segStore();
   sx.set('werbefrei.sponsor.link', style);
   const r = await run({ url: ping(ID, '80.2'), store: sx });

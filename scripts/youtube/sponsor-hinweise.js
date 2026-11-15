@@ -6,18 +6,23 @@
 //    4 Zeichen eines SHA-256-Hashes der Kennung) und merkt sich die Sponsor-Stellen.
 // B) Wiedergabe-Meldungen /api/stats/… – die App meldet regelmäßig die aktuelle
 //    Abspielposition (cmt) und die Video-Kennung (docid), in der Adresse oder im Inhalt.
-//    Liegt die Position in einer Sponsor-Stelle, kommt GENAU DANN eine Mitteilung.
-//    Antippen öffnet das Video hinter der Stelle.
-// Keine Anfrage an YouTube wird verändert oder verzögert (außer A um die SponsorBlock-Abfrage).
+//    Läuft gerade eine Sponsor-Stelle, kommt sofort eine Mitteilung. Beginnt eine Stelle kurz
+//    nach der Meldung, hält das Skript die Meldung an und meldet sich PÜNKTLICH zum Beginn
+//    (höchstens so lange, wie das Modul erlaubt: „hold“ Sekunden). Antippen öffnet das Video
+//    hinter der Stelle.
+// Keine Anfrage an YouTube wird verändert. Verzögert werden nur A um die SponsorBlock-Abfrage
+// und B, solange auf den Beginn einer Stelle gewartet wird (die Meldung geht danach unverändert raus).
 
 (() => {
   'use strict';
 
-  const VERSION = 8; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
+  const VERSION = 9; // erscheint in der Werbefrei-App, damit man sieht, welche Fassung läuft
   const API = 'https://sponsor.ajay.app/api/skipSegments/';
   const SEGS_KEY = 'werbefrei.sponsor.segments';     // { id, t, segs } des zuletzt geöffneten Videos
   const POS_KEY = 'werbefrei.sponsor.pos';           // { id, cmt, t } letzte Wiedergabe-Meldung
-  const NOTIFIED_KEY = 'werbefrei.sponsor.notified'; // { id, starts } schon gemeldete Stellen
+  const NOTIFIED_KEY = 'werbefrei.sponsor.notified'; // { videos: { id: { starts, missed, t } } } schon gemeldete Stellen
+  const SEGCACHE_KEY = 'werbefrei.sponsor.segcache'; // { list: [{ id, t, segs }] } Stellen der letzten Videos
+  const LOG_KEY = 'werbefrei.sponsor.log';           // { items, gaps } Genauigkeit der letzten Mitteilungen (ohne Video-Kennung)
   const STATUS_KEY = 'werbefrei.sponsor.status';     // letzter Ablauf, liest die Werbefrei-App
   const DEBUG_KEY = 'werbefrei.sponsor.debug';       // Testmodus, setzt die Werbefrei-App
   const RUNS_KEY = 'werbefrei.sponsor.runs';         // { next, ping, v } wann das Skript zuletzt lief
@@ -28,25 +33,31 @@
   const TIMEOUT_MS = 4500;
   const MAX_SEGMENTS = 10;
   const LABELS = { sponsor: 'Sponsor', selfpromo: 'Eigenwerbung', interaction: 'Abo-Aufruf' };
+  const HOLD_DEFAULT = 5;   // Sekunden Wartezeit, wenn das Modul nichts vorgibt (altes Modul: timeout=8)
+  const LEAD_MS = 300;      // so viel früher als der berechnete Beginn melden (Mitteilung braucht einen Moment)
+  const JUMP_MARGIN = 1;    // Sekunden Puffer hinter dem Ende der Stelle beim Sprung
 
+  const T0 = Date.now();    // Zeitpunkt der Meldung (das Skript startet, wenn die App sie abschickt)
   let finished = false;
-  let timer = null;
+  let guard = null;
+  let ownPosT = 0;          // Zeitstempel der Position, die dieses Skript gespeichert hat
   const finish = () => {
-    if (timer) { clearTimeout(timer); timer = null; }
+    if (guard) { clearTimeout(guard); guard = null; }
     if (!finished) { finished = true; $done({}); }
   };
-  timer = setTimeout(() => {
-    timer = null;
+  guard = setTimeout(() => {
+    guard = null;
     status('fehler', 'SponsorBlock hat nicht rechtzeitig geantwortet');
     finish();
   }, TIMEOUT_MS);
 
   function config() {
-    const c = { sponsor: true, selfpromo: true, interaction: false, vorschau: false, debug: false };
+    const c = { sponsor: true, selfpromo: true, interaction: false, vorschau: false, debug: false, hold: HOLD_DEFAULT };
     try {
       if (typeof $argument === 'string' && $argument && !$argument.includes('{{{')) Object.assign(c, JSON.parse($argument));
       else if ($argument && typeof $argument === 'object') Object.assign(c, $argument);
     } catch (e) { /* Standardwerte */ }
+    c.hold = Math.min(55, Math.max(0, Number(c.hold) || 0));
     return c;
   }
   const cfg = config();
@@ -180,7 +191,7 @@
   // den iOS direkt an die YouTube-App weitergibt.
   const linkStyle = (() => { try { return $persistentStore.read(LINK_KEY) || 'kurz'; } catch (e) { return 'kurz'; } })();
   const jumpUrl = (id, sec) => {
-    const t = Math.ceil(sec);
+    const t = Math.ceil(sec + JUMP_MARGIN);
     if (linkStyle === 'app') return `youtube://www.youtube.com/watch?v=${id}&t=${t}s`;
     if (linkStyle === 'web') return `https://www.youtube.com/watch?v=${id}&t=${t}s`;
     return `https://youtu.be/${id}?t=${t}`;
@@ -222,6 +233,55 @@
     return merged.slice(0, MAX_SEGMENTS);
   }
 
+  // ---------- Merkzettel: Stellen, gemeldete Stellen, Genauigkeit ----------
+  function getSegs(id) {
+    const last = readJSON(SEGS_KEY);
+    if (last && last.id === id && Date.now() - last.t < CACHE_MS) return last.segs;
+    const c = readJSON(SEGCACHE_KEY);
+    const hit = c && Array.isArray(c.list) ? c.list.find((x) => x && x.id === id && Date.now() - x.t < CACHE_MS) : null;
+    return hit ? hit.segs : null;
+  }
+  function putSegs(id, segs) {
+    writeJSON(SEGS_KEY, { id, t: Date.now(), segs });
+    const c = readJSON(SEGCACHE_KEY);
+    const rest = (c && Array.isArray(c.list) ? c.list : []).filter((x) => x && x.id !== id);
+    writeJSON(SEGCACHE_KEY, { list: [{ id, t: Date.now(), segs }, ...rest].slice(0, 6) });
+  }
+  function readNotifiedAll() {
+    const n = readJSON(NOTIFIED_KEY);
+    if (n && n.videos && typeof n.videos === 'object') return n;
+    if (n && n.id) return { videos: { [n.id]: { starts: n.starts || [], missed: [], t: Date.now() } } }; // Format bis v8
+    return { videos: {} };
+  }
+  function readNotified(id) {
+    const v = readNotifiedAll().videos[id];
+    return { starts: (v && v.starts) || [], missed: (v && v.missed) || [] };
+  }
+  function updateNotified(id, fn) {
+    const all = readNotifiedAll();
+    const v = all.videos[id] || { starts: [], missed: [] };
+    v.starts = v.starts || [];
+    v.missed = v.missed || [];
+    fn(v);
+    v.t = Date.now();
+    all.videos[id] = v;
+    const keep = Object.keys(all.videos).sort((a, b) => (all.videos[b].t || 0) - (all.videos[a].t || 0)).slice(0, 6);
+    writeJSON(NOTIFIED_KEY, { videos: Object.fromEntries(keep.map((k) => [k, all.videos[k]])) });
+  }
+  const markNotified = (id, start) => updateNotified(id, (v) => { if (!v.starts.includes(start)) v.starts.push(start); });
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const segInfo = (seg) => ({ cat: seg.category, s: r1(seg.start), e: r1(seg.end) });
+  function logEvent(e) {
+    const l = readJSON(LOG_KEY) || {};
+    const items = Array.isArray(l.items) ? l.items : [];
+    writeJSON(LOG_KEY, { ...l, v: VERSION, items: [{ t: Date.now(), ...e }, ...items].slice(0, 12) });
+  }
+  function recordGap(gap) {
+    const l = readJSON(LOG_KEY) || {};
+    const gaps = Array.isArray(l.gaps) ? l.gaps : [];
+    writeJSON(LOG_KEY, { ...l, gaps: [Math.round(gap), ...gaps].slice(0, 10) });
+  }
+
   // Fragt SponsorBlock nach den Stellen eines Videos. cb(segs) – segs ist null bei Fehler.
   function fetchSegments(id, cb) {
     const cats = Object.keys(LABELS).filter((k) => cfg[k] === true);
@@ -239,8 +299,8 @@
         }
         const code = resp && (resp.status || resp.statusCode);
         const segs = code === 404 || !data ? [] : pickSegments(JSON.parse(data), id);
-        writeJSON(SEGS_KEY, { id, t: Date.now(), segs });
-        writeJSON(NOTIFIED_KEY, { id, starts: [] });
+        putSegs(id, segs);
+        updateNotified(id, (v) => { v.starts = []; v.missed = []; });
         cb(segs);
       } catch (e) {
         status('fehler', String(e && e.message ? e.message : e).slice(0, 80));
@@ -307,65 +367,131 @@
     });
 
     if (!ID_RE.test(id || '')) { finish(); return; }
-    // Abstand zur letzten Meldung = wie oft die App meldet (für die Vorschau „beginnt gleich“).
-    const prev = readJSON(POS_KEY);
-    const gap = prev && prev.id === id && Date.now() - prev.t < 120000 ? (Date.now() - prev.t) / 1000 : 10;
-    if (isFinite(cmt)) writeJSON(POS_KEY, { id, cmt, t: Date.now() });
+    // Stumme Vorschau in einer Liste (z. B. Startseite): nicht auswerten.
+    if (all.muted === '1' && all.el && all.el !== 'detailpage') { finish(); return; }
+    let rate = parseFloat(all.rate);
+    if (!(rate >= 0.25 && rate <= 4)) rate = 1;
+    const paused = /paus/i.test(all.state || '');
 
-    const store = readJSON(SEGS_KEY);
-    if (store && store.id === id && Date.now() - store.t < CACHE_MS) {
-      if (isFinite(cmt)) checkPosition(id, cmt, store.segs, gap);
-      finish();
+    // Abstand zur letzten Meldung = wie oft die App meldet.
+    const prev = readJSON(POS_KEY);
+    const sameVideo = prev && prev.id === id && Date.now() - prev.t < 120000;
+    const gap = sameVideo ? (Date.now() - prev.t) / 1000 : 10;
+    if (isFinite(cmt)) {
+      if (sameVideo && gap >= 1) recordGap(gap);
+      // Ganz zwischen zwei Meldungen vorbeigelaufen? Für die Genauigkeits-Anzeige festhalten.
+      const known = sameVideo ? getSegs(id) : null;
+      if (known && cmt > prev.cmt && cmt - prev.cmt < 180) {
+        const n = readNotified(id);
+        for (const sg of known) {
+          if (sg.start > prev.cmt && sg.end <= cmt && !n.starts.includes(sg.start) && !n.missed.includes(sg.start)) {
+            updateNotified(id, (v) => { v.missed.push(sg.start); });
+            logEvent({ kind: 'verpasst', ...segInfo(sg), from: r1(prev.cmt), p: r1(cmt), gap: r1(gap) });
+          }
+        }
+      }
+      ownPosT = Date.now();
+      writeJSON(POS_KEY, { id, cmt, t: ownPosT, rate, paused });
+    }
+
+    const known = getSegs(id);
+    if (known) {
+      if (!(isFinite(cmt) && plan(id, cmt, known, rate, gap, paused))) finish();
       return;
     }
     // Neues Video: Stellen jetzt holen.
     fetchSegments(id, (segs) => {
+      let held = false;
       try {
         if (segs && segs.length) {
           status('bereit', `${segs.length === 1 ? '1 Stelle' : `${segs.length} Stellen`} bekannt (${list(segs)}) – Mitteilung kommt, wenn sie läuft`, segs.length);
-          if (isFinite(cmt)) checkPosition(id, cmt, segs, gap);
+          if (isFinite(cmt)) held = plan(id, cmt, segs, rate, gap, paused);
         } else if (segs) {
           status('keine-daten', 'Für dieses Video ist nichts eingetragen');
           debug('Keine Sponsor-Daten', 'Für dieses Video ist bei SponsorBlock nichts eingetragen.');
         }
       } finally {
-        finish();
+        if (!held) finish();
       }
     });
   }
 
-  // Meldet eine Stelle, wenn sie läuft – oder schon, wenn sie vor der nächsten erwarteten
-  // Meldung beginnt (gap = Sekunden zwischen den Meldungen, höchstens 15 s Vorlauf).
-  function checkPosition(id, cmt, segs, gap) {
-    if (!Array.isArray(segs) || !segs.length) return;
-    const lead = Math.min(15, Math.max(4, gap || 10));
-    const seg = segs.find((x) => cmt < x.end - 3 && cmt >= x.start - lead);
-    if (!seg) return;
-
-    const done = readJSON(NOTIFIED_KEY);
-    const starts = done && done.id === id && Array.isArray(done.starts) ? done.starts : [];
-    if (starts.includes(seg.start)) return;
-    writeJSON(NOTIFIED_KEY, { id, starts: [...starts, seg.start] });
-
-    const len = Math.round(seg.end - seg.start);
-    if (cmt < seg.start) {
-      $notification.post(
-        `⏭ ${label(seg)} beginnt gleich (bei ${fmt(seg.start)})`,
-        '',
-        `${len} s lang · Tippen, wenn er beginnt = weiter bei ${fmt(seg.end)}`,
-        { action: 'open-url', url: jumpUrl(id, seg.end) },
-      );
-      status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} vorab gemeldet (Position ${fmt(cmt)})`, 1);
-    } else {
-      const rest = Math.max(1, Math.round(seg.end - cmt));
-      $notification.post(
-        `⏭ ${label(seg)} läuft – noch ${rest} s`,
-        '',
-        `Tippen = weiter bei ${fmt(seg.end)}`,
-        { action: 'open-url', url: jumpUrl(id, seg.end) },
-      );
-      status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} gemeldet bei Position ${fmt(cmt)}`, 1);
+  // Plant die Mitteilung für die nächste Stelle ab Position p (Sekunden im Video).
+  // - Läuft die Stelle schon: sofort melden.
+  // - Beginnt sie, bevor das Modul die Meldung loslassen muss: Meldung anhalten und pünktlich melden
+  //   (Rückgabe true – dann ruft der Zeitgeber finish() auf).
+  // - Altes Modul mit kurzer Haltezeit: wie früher vorab melden, wenn sie vor der nächsten Meldung beginnt.
+  function plan(id, p, segs, rate, gap, paused) {
+    if (!Array.isArray(segs) || !segs.length) return false;
+    const n = readNotified(id);
+    // Zurückgespult (deutlich vor eine schon gemeldete Stelle): darf wieder gemeldet werden.
+    const back = n.starts.filter((st) => p < st - 20);
+    if (back.length) updateNotified(id, (v) => { v.starts = v.starts.filter((st) => !back.includes(st)); });
+    const done = n.starts.filter((st) => !back.includes(st));
+    const seg = segs.find((x) => p < x.end - 3 && !done.includes(x.start));
+    if (!seg) return false;
+    if (p >= seg.start - 0.5) { postRunning(id, seg, p, gap); return false; }
+    if (paused) return false;
+    const elapsed = Date.now() - T0;
+    const waitMs = ((seg.start - p) / rate) * 1000 - elapsed - LEAD_MS;
+    const budget = cfg.hold * 1000 - elapsed - 700;
+    if (waitMs <= budget) {
+      if (guard) { clearTimeout(guard); guard = null; }
+      status('wartet', `${label(seg)} bei ${fmt(seg.start)} – Mitteilung in ${Math.max(0, Math.round(waitMs / 1000))} s`, 1);
+      setTimeout(() => {
+        try { fireHeld(id, seg, p, waitMs, gap); } catch (e) { status('fehler', String(e && e.message ? e.message : e).slice(0, 80)); } finally { finish(); }
+      }, Math.max(0, waitMs));
+      return true;
     }
+    if (cfg.hold < 15) {
+      const lead = Math.min(15, Math.max(4, gap || 10));
+      if (seg.start - p <= lead) postEarly(id, seg, p, gap);
+    }
+    return false;
+  }
+
+  function fireHeld(id, seg, p, waitMs, gap) {
+    const pos = readJSON(POS_KEY);
+    // Inzwischen kam eine neuere Positions-Meldung (z. B. Pause oder Sprung): die entscheidet selbst.
+    if (pos && pos.t > Math.max(T0, ownPosT)) {
+      logEvent({ kind: 'übergeben', ...segInfo(seg), p: r1(p), wait: r1(waitMs / 1000) });
+      return;
+    }
+    if (readNotified(id).starts.includes(seg.start)) return;
+    markNotified(id, seg.start);
+    $notification.post(
+      `⏭ ${label(seg)} beginnt jetzt`,
+      '',
+      `${Math.round(seg.end - seg.start)} s · Tippen = weiter bei ${fmt(seg.end)}`,
+      { action: 'open-url', url: jumpUrl(id, seg.end) },
+    );
+    status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} pünktlich gemeldet (${Math.max(0, Math.round(waitMs / 1000))} s gewartet)`, 1);
+    logEvent({ kind: 'pünktlich', ...segInfo(seg), p: r1(p), wait: r1(Math.max(0, waitMs) / 1000), gap: r1(gap) });
+  }
+
+  function postRunning(id, seg, p, gap) {
+    markNotified(id, seg.start);
+    const rest = Math.max(1, Math.round(seg.end - p));
+    $notification.post(
+      `⏭ ${label(seg)} läuft – noch ${rest} s`,
+      '',
+      `Tippen = weiter bei ${fmt(seg.end)}`,
+      { action: 'open-url', url: jumpUrl(id, seg.end) },
+    );
+    status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} gemeldet bei Position ${fmt(p)}`, 1);
+    logEvent({ kind: 'läuft', ...segInfo(seg), p: r1(p), late: r1(Math.max(0, p - seg.start)), gap: r1(gap) });
+  }
+
+  function postEarly(id, seg, p, gap) {
+    markNotified(id, seg.start);
+    $notification.post(
+      `⏭ ${label(seg)} beginnt gleich (bei ${fmt(seg.start)})`,
+      '',
+      `${Math.round(seg.end - seg.start)} s lang · Tippen, wenn er beginnt = weiter bei ${fmt(seg.end)}`,
+      { action: 'open-url', url: jumpUrl(id, seg.end) },
+    );
+    status('gemeldet', `${label(seg)} bei ${fmt(seg.start)} vorab gemeldet (Position ${fmt(p)})`, 1);
+    logEvent({ kind: 'vorab', ...segInfo(seg), p: r1(p), early: r1(seg.start - p), gap: r1(gap) });
   }
 
   // ---------- A) Video wird geöffnet: Sponsor-Stellen holen und merken ----------
@@ -387,9 +513,9 @@
       return;
     }
 
-    const cached = readJSON(SEGS_KEY);
-    if (cached && cached.id === id && Date.now() - cached.t < CACHE_MS) {
-      debug('Video schon bekannt', cached.segs.length ? `Stellen: ${list(cached.segs)}` : 'Keine Sponsor-Stellen eingetragen.');
+    const cached = getSegs(id);
+    if (cached) {
+      debug('Video schon bekannt', cached.length ? `Stellen: ${list(cached)}` : 'Keine Sponsor-Stellen eingetragen.');
       finish();
       return;
     }

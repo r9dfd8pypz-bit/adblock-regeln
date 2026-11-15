@@ -251,10 +251,11 @@
     <div class="advice" id="sp-advice" hidden></div>
     <h3 class="section-header">Röntgenblick (direkt aus Surge)</h3>
     <ul class="list">
-      <li class="row"><span class="row-text"><strong>Regel „Video-Start“</strong><small>youtube.sponsor.v6.start</small></span><span class="value" id="sp-r-next">–</span></li>
-      <li class="row"><span class="row-text"><strong>Regel „Wiedergabe“</strong><small>youtube.sponsor.v6.wiedergabe</small></span><span class="value" id="sp-r-pos">–</span></li>
+      <li class="row"><span class="row-text"><strong>Regel „Video-Start“</strong><small>youtube.sponsor.v7.start</small></span><span class="value" id="sp-r-next">–</span></li>
+      <li class="row"><span class="row-text"><strong>Regel „Wiedergabe“</strong><small>youtube.sponsor.v7.wiedergabe</small></span><span class="value" id="sp-r-pos">–</span></li>
       <li class="row"><span class="row-text"><strong>Skript lief zuletzt</strong><small id="sp-r-runs">–</small></span></li>
       <li class="row"><span class="row-text"><strong>Letzte YouTube-Anfragen</strong><small id="sp-r-stats">–</small></span></li>
+      <li class="row"><span class="row-text"><strong>Letzte Mitteilungen</strong><small id="sp-r-log">–</small></span></li>
       <li class="row"><span class="row-text"><strong>Aufbau der Meldungen</strong><small id="sp-r-pings">–</small></span></li>
       <li class="row"><span class="row-text"><strong>Surge-Meldungen</strong><small id="sp-r-events">–</small></span></li>
     </ul>
@@ -273,6 +274,8 @@
     <h3 class="section-header">Was die Meldungen bedeuten</h3>
     <dl class="list text-list">
       <div><dt>Noch kein Video geprüft</dt><dd>Surge nutzt vermutlich noch eine alte Fassung des Skripts. Auf <strong>Skript neu laden</strong> tippen, dann YouTube ganz schließen, neu öffnen und ein Video starten. Hilft das nicht: Ist das Modul oben „an“?</dd></div>
+      <div><dt>⏭ Sponsor beginnt jetzt</dt><dd>Die Stelle fängt in diesem Moment an. Antippen springt 1 Sekunde hinter ihr Ende.</dd></div>
+      <div><dt>Letzte Mitteilungen: „verpasst“ oder „beginnt gleich“</dt><dd>Meist ist noch das alte Modul installiert. Auf <strong>Modul aktualisieren</strong> tippen und in Surge bestätigen. Hilft das nicht: Modul in Surge → Modify löschen und noch einmal „Modul aktualisieren“.</dd></div>
       <div><dt>Für dieses Video ist nichts eingetragen</dt><dd>Alles funktioniert, nur kennt SponsorBlock dieses Video nicht. Ein Video eines großen Kanals ausprobieren.</dd></div>
       <div><dt>SponsorBlock nicht erreichbar</dt><dd>Eventuell sperrt NextDNS die Adresse sponsor.ajay.app. In den NextDNS-Logs nachsehen und freigeben.</dd></div>
       <div><dt>Positions-Meldungen: noch keine</dt><dd>Surge liest die Wiedergabe noch nicht mit, meist weil noch das alte Modul installiert ist. Auf <strong>Modul aktualisieren</strong> tippen, in Surge bestätigen, dann YouTube ganz schließen und neu öffnen. Bis dahin kommen die Hinweise wie früher beim Videostart.</dd></div>

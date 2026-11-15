@@ -90,16 +90,20 @@ Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
 Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen Nutzer weltweit ein, von wann bis wann das passiert. Der **Sponsor-Wächter** nutzt das:
 
 1. **Beim Öffnen eines Videos** holt er die eingetragenen Stellen. An SponsorBlock gehen dabei nur 4 Zeichen eines Hashes der Video-Kennung.
-2. **Während das Video läuft**, meldet die YouTube-App etwa alle 10 Sekunden ihre Position an YouTube. Der Wächter liest diese Meldung nur mit.
-3. **Läuft gerade eine Sponsor-Stelle**, kommt sofort eine Mitteilung: *„⏭ Sponsor läuft – noch 46 s · Tippen = weiter bei 2:06“*. Tippst du direkt auf das Banner, springt YouTube dahinter.
+2. **Während das Video läuft**, meldet die YouTube-App alle 10 bis 40 Sekunden ihre Position an YouTube. Der Wächter liest diese Meldung mit.
+3. **Beginnt eine Sponsor-Stelle in den nächsten 35 Sekunden**, hält der Wächter diese Meldung so lange an und meldet sich **pünktlich zum Beginn**: *„⏭ Sponsor beginnt jetzt · 54 s · Tippen = weiter bei 2:06“*. Danach geht die Meldung unverändert an YouTube.
+4. **Läuft eine Stelle schon**, kommt die Mitteilung sofort: *„⏭ Sponsor läuft – noch 46 s“*.
+
+Tippst du auf das Banner, springt YouTube 1 Sekunde hinter das Ende der Stelle.
 
 Einrichten:
 - In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen, dann den Schalter einschalten. Nach Änderungen am Modul: **Werkzeuge → Sponsor-Hinweise prüfen → Modul aktualisieren** und in Surge bestätigen. „Skript neu laden“ aktualisiert nur das Skript, nicht das Modul.
 - Surge muss Mitteilungen senden dürfen: In Surge auf der Startseite (Tab *General*, ganz unten) Mitteilungen erlauben.
 
-Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuellen Video und die letzte gemeldete Position. Steht bei „Positions-Meldungen“ nach ein paar Sekunden Video noch „keine“, liest Surge nicht mit. Meist ist dann noch das alte Modul installiert: **Modul aktualisieren**, in Surge bestätigen und YouTube neu öffnen. Bis dahin meldet das Skript die Stellen wie früher beim Videostart.
+Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuellen Video, die letzte gemeldete Position und unter **Letzte Mitteilungen**, wie pünktlich die letzten Hinweise kamen („pünktlich“, „3 s nach Beginn“, „verpasst“). Steht bei „Positions-Meldungen“ nach ein paar Sekunden Video noch „keine“, liest Surge nicht mit. Meist ist dann noch das alte Modul installiert: **Modul aktualisieren**, in Surge bestätigen und YouTube neu öffnen. Bis dahin meldet das Skript die Stellen wie früher beim Videostart.
 
 Gut zu wissen:
 - Es klappt nur bei Videos, die schon jemand eingetragen hat. Bei großen Kanälen ist das meist der Fall.
-- Die App meldet ihre Position nur alle paar Sekunden. Beginnt der Sponsor vor der nächsten Meldung, kommt die Mitteilung kurz vorher („⏭ Sponsor beginnt gleich“), dann tippst du, sobald er beginnt. Sonst kommt sie, während er läuft.
+- Pünktlich klappt es nur mit dem Modul ab v7, das dem Wächter bis zu 40 Sekunden Zeit gibt. Mit einem älteren Modul kommt die Mitteilung manchmal kurz vorher („⏭ Sponsor beginnt gleich“). Dann **Modul aktualisieren**.
+- Pausierst oder springst du, während der Wächter wartet, verwirft er die alte Planung und richtet sich nach der neuen Position.
 - Ein automatisches Überspringen ohne Antippen geht in der offiziellen YouTube-App nicht. Dafür bräuchte es eine umgebaute App, und bei uYouEnhanced ist diese Funktion seit August 2026 wegen Abstürzen abgeschaltet.

@@ -22,15 +22,16 @@
   const SPONSOR_RUNS_KEY = 'werbefrei.sponsor.runs';
   const SPONSOR_PINGS_KEY = 'werbefrei.sponsor.pings';
   const SPONSOR_LINK_KEY = 'werbefrei.sponsor.link';
+  const SPONSOR_LOG_KEY = 'werbefrei.sponsor.log';
   // Test-Video für den Sprung-Test (öffentlich, lange verfügbar), Sprung zu 1:00
   const JUMP_TESTS = [
     ['1', 'https://youtu.be/dQw4w9WgXcQ?t=60'],
     ['2', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=60s'],
     ['3', 'youtube://www.youtube.com/watch?v=dQw4w9WgXcQ&t=60s'],
   ];
-  const RULE_START = 'youtube.sponsor.v6.start';
-  const RULE_PLAYBACK = 'youtube.sponsor.v6.wiedergabe';
-  const OLD_RULES = ['youtube.sponsor', 'youtube.sponsor.position'];
+  const RULE_START = 'youtube.sponsor.v7.start';
+  const RULE_PLAYBACK = 'youtube.sponsor.v7.wiedergabe';
+  const OLD_RULES = ['youtube.sponsor', 'youtube.sponsor.position', 'youtube.sponsor.v6.start', 'youtube.sponsor.v6.wiedergabe'];
   const SPONSOR_SCRIPT_URL = 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js';
 
   // Welche Skript-Version liegt gerade online im Repo? (null, wenn nicht abrufbar)
@@ -779,11 +780,11 @@
   // ---------- Sponsor-Hinweise prüfen ----------
   async function readSponsor() {
     const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
-    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)}, pings: ${read(SPONSOR_PINGS_KEY)}, link: ${read(SPONSOR_LINK_KEY)} });`;
+    const code = `$done({ status: ${read(SPONSOR_STATUS_KEY)}, debug: ${read(SPONSOR_DEBUG_KEY)}, segs: ${read(SPONSOR_SEGS_KEY)}, pos: ${read(SPONSOR_POS_KEY)}, runs: ${read(SPONSOR_RUNS_KEY)}, pings: ${read(SPONSOR_PINGS_KEY)}, link: ${read(SPONSOR_LINK_KEY)}, log: ${read(SPONSOR_LOG_KEY)} });`;
     const res = await backend.evaluate(code);
     const r = (res && res.result) || {};
     const parse = (v) => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
-    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs), pings: parse(r.pings), link: r.link || 'kurz' };
+    return { last: parse(r.status), debug: r.debug === 'true', segs: parse(r.segs), pos: parse(r.pos), runs: parse(r.runs), pings: parse(r.pings), link: r.link || 'kurz', log: parse(r.log) };
   }
   const mmss = (sec) => {
     const s = Math.max(0, Math.round(sec));
@@ -804,6 +805,25 @@
   function describePosition(sp) {
     if (!sp || !sp.pos) return 'Noch keine – ein Video ein paar Sekunden laufen lassen';
     return `Zuletzt bei ${mmss(sp.pos.cmt)} im Video, ${ago(sp.pos.t)}`;
+  }
+  // Genauigkeit der letzten Mitteilungen (Sponsor-Skript ab v9)
+  function sponsorLogLine(x) {
+    const time = new Date(x.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const seg = `${mmss(x.s)}–${mmss(x.e)}`;
+    if (x.kind === 'pünktlich') return `${time} ${seg}: pünktlich (${x.wait} s gewartet)`;
+    if (x.kind === 'läuft') return `${time} ${seg}: ${x.late} s nach Beginn gemeldet`;
+    if (x.kind === 'vorab') return `${time} ${seg}: ${x.early} s zu früh gemeldet (altes Modul)`;
+    if (x.kind === 'verpasst') return `${time} ${seg}: verpasst (Meldungen bei ${mmss(x.from)} und ${mmss(x.p)})`;
+    if (x.kind === 'übergeben') return `${time} ${seg}: an neuere Meldung übergeben`;
+    return `${time} ${seg}: ${x.kind}`;
+  }
+  function describeLog(sp) {
+    const items = sp && sp.log && Array.isArray(sp.log.items) ? sp.log.items : [];
+    return items.length ? items.slice(0, 3).map(sponsorLogLine).join(' | ') : 'Noch keine';
+  }
+  function describeGaps(sp) {
+    const gaps = sp && sp.log && Array.isArray(sp.log.gaps) ? sp.log.gaps : [];
+    return gaps.length ? gaps.map((g) => `${g} s`).join(', ') : 'noch unbekannt';
   }
   function describeSponsor(sp) {
     if (!sp || !sp.last) return 'Noch kein Video geprüft';
@@ -882,6 +902,7 @@
       $('sp-segs').textContent = describeSegments(state.sponsor);
       $('sp-pos').textContent = describePosition(state.sponsor);
       $('sp-r-runs').textContent = describeRuns(state.sponsor, null);
+      $('sp-r-log').textContent = describeLog(state.sponsor);
       $('sp-debug').checked = state.sponsor.debug;
       for (const b of document.querySelectorAll('[data-link-style]')) b.setAttribute('aria-pressed', String(b.dataset.linkStyle === state.sponsor.link));
     } catch (e) {
@@ -916,6 +937,8 @@
       `Letztes Video: ${describeSponsor(sp)}`,
       `Stellen: ${describeSegments(sp)}`,
       `Position: ${describePosition(sp)}`,
+      `Letzte Mitteilungen:${sp && sp.log && sp.log.items && sp.log.items.length ? `\n${sp.log.items.map((x) => `  - ${sponsorLogLine(x)}`).join('\n')}` : ' noch keine'}`,
+      `Abstand der Positions-Meldungen: ${describeGaps(sp)}`,
       `Anfragen: ${$('sp-r-stats').textContent}`,
       `Hosts: ${x.hosts.join(', ') || 'keine'}`,
       `Aufbau der Meldungen:${pings.length ? `\n${pings.map((p) => `  - ${pingLine(p)}`).join('\n')}` : ' noch keine'}`,

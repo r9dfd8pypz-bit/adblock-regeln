@@ -25,6 +25,7 @@ const surge = { enabled: [MODULE], available: [MODULE, 'Anderes Modul'], mitm: t
     ['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })],
     ['werbefrei.sponsor.segments', JSON.stringify({ id: 'abc', t: Date.now(), segs: [{ start: 73, end: 126.4, category: 'sponsor' }] })],
     ['werbefrei.sponsor.pos', JSON.stringify({ id: 'abc', cmt: 80.2, t: Date.now() - 5000 })],
+    ['werbefrei.sponsor.log', JSON.stringify({ v: 9, gaps: [10, 20, 40], items: [{ t: Date.now(), kind: 'pünktlich', cat: 'sponsor', s: 72.5, e: 126.4, p: 50, wait: 22.2 }, { t: Date.now() - 60000, kind: 'verpasst', cat: 'sponsor', s: 300, e: 310, from: 290, p: 330 }] })],
     ['werbefrei.feed.diag', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-4', ep: 'browse', len: 204800, m: ['pagead'], g: 1, rm: [], rg: 0,
       items: [{ n: 'oben feld 777', s: 90000, m: [], g: 1, x: true, r: 1 }, { n: 'video_lockup.eml', s: 4000, m: [], g: 0, x: false }, { n: 'promoted_video_lockup.eml', s: 6000, m: [], g: 0, x: true, k: 1 }] }] })],
   ]) };
@@ -153,6 +154,8 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.waitForFunction(() => document.getElementById('sp-module').textContent === 'an');
   ok((await page.textContent('#sp-last')).includes('nichts eingetragen'), 'Prüf-Seite zeigt das letzte Ergebnis');
   ok(await page.textContent('#sp-segs') === '1:13–2:06', 'Prüf-Seite zeigt die Stellen im Video');
+  const spLog = await page.textContent('#sp-r-log');
+  ok(/pünktlich \(22\.2 s gewartet\)/.test(spLog) && /5:00–5:10: verpasst \(Meldungen bei 4:50 und 5:30\)/.test(spLog), `Prüf-Seite zeigt, wie pünktlich die letzten Mitteilungen kamen (${spLog})`);
   await page.waitForFunction(() => document.getElementById('sp-r-pos').textContent !== 'Lade …');
   ok(await page.textContent('#sp-r-next') === 'fehlt ❌' && await page.textContent('#sp-r-pos') === 'fehlt ❌', 'Röntgenblick erkennt, dass die neuen Regeln fehlen');
   ok((await page.textContent('#sp-r-events')).includes('youtube.sponsor'), 'Röntgenblick zeigt Surge-Meldungen');
