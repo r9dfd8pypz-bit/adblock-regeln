@@ -6,7 +6,8 @@ Ziel: Apps auf dem iPhone so nutzen, als liefen sie in Brave. Den Anfang macht *
 
 | Baustein | Was er macht | Wo |
 |---|---|---|
-| **NextDNS** | Sperrt bekannte Werbe- und Tracker-Domains in allen Apps, zum Beispiel Werbenetzwerke in Spielen | iPhone, später auch die Fritzbox |
+| **NextDNS** | Sperrt bekannte Werbe- und Tracker-Domains in allen Apps, zum Beispiel Werbenetzwerke in Spielen | iPhone |
+| **AdGuard DNS** | Dasselbe für alle Geräte im WLAN, gratis und ohne Konto | Fritzbox |
 | **Surge** | Läuft als lokales „VPN“ direkt auf dem iPhone. Es entschlüsselt *nur* YouTube und löscht die Werbung aus den Antworten, bevor die App sie anzeigt | iPhone |
 | **Dieses Repo** | Deine eigene Regelsammlung. Surge lädt das Modul von hier und aktualisiert es selbst | GitHub |
 
@@ -26,23 +27,24 @@ Ein kündbares Monatsabo bietet keine dieser Apps an. Plan: Mit der kostenlosen 
 
 1. **[NextDNS auf dem iPhone](anleitung/1-nextdns-iphone.md)**: kostenlos, etwa 10 Minuten.
 2. **[Surge-Testwoche mit YouTube-Modul](anleitung/2-surge-youtube.md)**: erst starten, wenn du 30 Minuten Zeit hast, denn ab dann laufen die 7 Tage.
-3. **[Fritzbox auf NextDNS](anleitung/3-fritzbox.md)**: optional und erst später. Mit allen Geräten im Haushalt wird es mit 300.000 Anfragen im Monat knapp. Darum nutzt du NextDNS zuerst eine Woche nur am iPhone und schaust dir den Verbrauch an.
+3. **[Ganzer Haushalt über die Fritzbox](anleitung/3-fritzbox.md)**: gratis mit AdGuard DNS, ohne Konto. Gilt für alle Geräte im WLAN. YouTube-Werbung am Fernseher bleibt, das kann DNS nicht.
 4. **[Werbefrei-Zentrale als App](anleitung/4-steuerzentrale.md)**: Schalter und „Alles sofort stoppen“ auf dem Home-Bildschirm, schlicht im Stil der iPhone-Einstellungen, hell und dunkel. Läuft kostenlos über GitHub Pages.
 
 ## Die App
 
 Die **Werbefrei-Zentrale** (`app/`) bündelt alles Wichtige auf einem Bildschirm:
 
-- **Hauptschalter** und **Alles sofort stoppen** für Surge. Das geht immer, auch ohne Einrichtung.
-- Schalter für das **YouTube-Modul**, die **HTTPS-Entschlüsselung** und die **Skripte**, dazu „Alles pausieren“ und „Alles an“.
-- **NextDNS-Status**, **Profil neu laden**, **DNS-Cache leeren** und ein **Ereignisprotokoll**.
+- **Statuskarte** mit Reparier-Knopf, **Schutz** (Surge an/aus), **YouTube ohne Werbung** und **Alles sofort stoppen**. Das geht immer, auch ohne Einrichtung.
+- **Hilfe von Claude:** Spurensuche bei Werbung und ein **Bericht für Claude**, den ein Tipp kopiert.
+- **Zuhause & Internet:** NextDNS-Status und die Anleitung für den ganzen Haushalt (Fritzbox).
+- **Wartung:** Regeln & Skripte aktualisieren, Technik & Diagnose, Verlauf.
 - Ein **Demo-Modus** zum Ausprobieren ohne Surge.
 
 Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/app/`
 
 ## Sicherheitsregeln
 
-- Surge entschlüsselt nur YouTube-Adressen: `youtubei.googleapis.com` und `*.googlevideo.com` (Werbefilter), dazu `s.youtube.com` und `www.youtube.com`, falls die Sponsor-Hinweise an sind. Bei diesen beiden liest das Skript nur die Wiedergabe-Position mit. Banking, Apple, Gesundheit und alles andere bleiben unberührt. `tests/pruefen.mjs` prüft das automatisch.
+- Surge entschlüsselt nur YouTube-Adressen: `youtubei.googleapis.com` und `*.googlevideo.com` (Werbefilter). Banking, Apple, Gesundheit und alles andere bleiben unberührt. `tests/pruefen.mjs` prüft das automatisch.
 - Das YouTube-Skript liegt als **geprüfte, feste Kopie** in diesem Repo, siehe [scripts/youtube/HERKUNFT.md](scripts/youtube/HERKUNFT.md). Der Teil des Originals, der Daten an einen fremden Server schickt, ist entfernt, und die Werbe-Erkennung im Feed ist verbessert (dort dokumentiert).
 - Das Surge-Zertifikat wird auf deinem iPhone erzeugt und bleibt dort. Exportiere oder teile es nie.
 - Aufhören geht jederzeit: Surge löschen und das Zertifikat entfernen unter Einstellungen → Allgemein → VPN und Geräteverwaltung.
@@ -51,15 +53,15 @@ Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/ap
 
 ```
 modules/youtube-werbefrei.sgmodule   Surge-Modul gegen YouTube-Werbung (das abonniert Surge)
-modules/youtube-sponsor-hinweise.sgmodule  Optional: Sponsor-Wächter, meldet Influencer-Werbung, während sie läuft (SponsorBlock)
-scripts/youtube/sponsor-hinweise.js  Eigenes Skript dazu
+modules/youtube-sponsor-hinweise.sgmodule  Stillgelegt (16.11.2026), tut nichts mehr, kann in Surge gelöscht werden
+scripts/youtube/sponsor-hinweise.js  Stillgelegt: lässt jede Anfrage sofort durch
 scripts/youtube/youtube.response.js  YouTube-Skript (Apache-2.0, von Maasea/sgmodule)
 scripts/youtube/HERKUNFT.md          Herkunft und Prüfbericht des Skripts
 app/                                 Werbefrei-Zentrale (Web-App für den Home-Bildschirm)
 anleitung/                           Schritt-für-Schritt-Anleitungen fürs iPhone
 tests/pruefen.mjs                    Automatische Prüfung: node tests/pruefen.mjs
 tests/app-e2e.cjs                    App-Test gegen eine nachgebaute Surge-Schnittstelle (braucht Playwright)
-tests/sponsor-test.mjs               Test für das Sponsor-Skript: node tests/sponsor-test.mjs
+tests/sponsor-test.mjs               Prüft, dass das stillgelegte Sponsor-Skript nichts mehr tut
 tests/feed-ads-test.mjs              Test: Werbung im Feed (z. B. Shopping-Karussell) wird entfernt
 ```
 

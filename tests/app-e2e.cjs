@@ -20,12 +20,11 @@ function ok(cond, text) {
 }
 
 // ---------- Nachgebaute Surge-Schnittstelle ----------
-const surge = { enabled: [MODULE], available: [MODULE, 'Anderes Modul'], mitm: true, scripting: true, calls: [], notes: [],
+const SPONSOR = 'YouTube Sponsor-Hinweise';
+const surge = { enabled: [MODULE, SPONSOR], available: [MODULE, SPONSOR, 'Anderes Modul'], mitm: true, scripting: true, calls: [], notes: [],
   store: new Map([
     ['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })],
     ['werbefrei.sponsor.segments', JSON.stringify({ id: 'abc', t: Date.now(), segs: [{ start: 73, end: 126.4, category: 'sponsor' }] })],
-    ['werbefrei.sponsor.pos', JSON.stringify({ id: 'abc', cmt: 80.2, t: Date.now() - 5000 })],
-    ['werbefrei.sponsor.log', JSON.stringify({ v: 9, gaps: [10, 20, 40], items: [{ t: Date.now(), kind: 'pünktlich', cat: 'sponsor', s: 72.5, e: 126.4, p: 50, wait: 22.2 }, { t: Date.now() - 60000, kind: 'verpasst', cat: 'sponsor', s: 300, e: 310, from: 290, p: 330 }] })],
     ['werbefrei.feed.diag', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-4', ep: 'browse', len: 204800, m: ['pagead'], g: 1, rm: [], rg: 0,
       items: [{ n: 'oben feld 777', s: 90000, m: [], g: 1, x: true, r: 1 }, { n: 'video_lockup.eml', s: 4000, m: [], g: 0, x: false }, { n: 'promoted_video_lockup.eml', s: 6000, m: [], g: 0, x: true, k: 1 }] }] })],
   ]) };
@@ -112,6 +111,9 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
 
   async function newPage(colorScheme, extraSettings = {}) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme });
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: APP.replace(/\/$/, '') });
+    // NextDNS-Testseite nachbilden (die App prüft beim Start still, ob NextDNS aktiv ist)
+    await ctx.route('https://test.nextdns.io/**', (r) => r.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ status: 'ok', protocol: 'DOH', deviceName: 'Test-iPhone' }) }));
     await ctx.addInitScript((s) => {
       if (!sessionStorage.getItem('init')) {
         localStorage.setItem('wf.settings', JSON.stringify(s));
@@ -135,69 +137,50 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(await page.getAttribute('#sw-module', 'aria-checked') === 'true', 'Modulschalter steht auf AN');
   await shot(page, '1-hell-aktiv.png');
 
-  // Sponsor-Hinweise: erst nicht installiert, dann installiert und einschaltbar
-  ok(await page.isVisible('#sponsor-install') && !(await page.isVisible('#sw-sponsor')), 'Sponsor-Modul fehlt: Knopf „Installieren“ statt Schalter');
-  surge.available.push('YouTube Sponsor-Hinweise');
+  // Sponsor-Hinweise sind entfernt: Die App schaltet das alte Modul einmal aus und räumt seine Daten weg
+  await page.waitForFunction(() => /Sponsor-Hinweise ausgeschaltet/.test(JSON.stringify(JSON.parse(localStorage.getItem('wf.log') || '[]'))), null, { timeout: 8000 });
+  ok(!surge.enabled.includes(SPONSOR) && surge.enabled.includes(MODULE), 'Altes Sponsor-Modul wird ausgeschaltet, YouTube-Modul bleibt an');
+  ok(surge.store.get('werbefrei.sponsor.status') === '' && surge.store.get('werbefrei.sponsor.segments') === '', 'Daten der Sponsor-Hinweise werden in Surge geleert');
+  ok(surge.store.get('werbefrei.feed.diag') !== '', 'Protokoll des YouTube-Skripts bleibt erhalten');
+  ok(!(await page.$('#sw-sponsor')) && !(await page.$('[data-action="sponsor"]')), 'Kein Sponsor-Schalter und keine Sponsor-Seite mehr');
+  const callsBefore = surge.calls.filter((c) => c.includes(SPONSOR)).length;
+  surge.enabled.push(SPONSOR);
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await page.waitForSelector('#sw-sponsor:not([hidden])');
-  ok(!(await page.isVisible('#sponsor-install')), 'Nach dem Installieren erscheint der Schalter');
-  await page.click('#sw-sponsor');
-  await page.waitForFunction(() => document.getElementById('sw-sponsor').getAttribute('aria-checked') === 'true');
-  ok(surge.enabled.includes('YouTube Sponsor-Hinweise'), 'Schalter schaltet das Sponsor-Modul in Surge ein');
-  ok(await titleIs(page, 'Schutz aktiv'), 'Status bleibt „Schutz aktiv“');
-  await page.waitForFunction(() => /^Zuletzt \d\d:\d\d: Für dieses Video ist nichts eingetragen$/.test(document.getElementById('sponsor-sub').textContent));
-  ok(true, 'Zeile zeigt, was beim letzten Video passiert ist');
+  await page.waitForTimeout(600);
+  ok(surge.calls.filter((c) => c.includes(SPONSOR)).length === callsBefore, 'Stilllegung passiert nur einmal (danach entscheidest du selbst)');
+  surge.enabled = surge.enabled.filter((n) => n !== SPONSOR);
 
-  // Sponsor-Hinweise prüfen
-  await page.click('[data-action="sponsor"]');
-  ok(await page.isVisible('#dlg-sponsor'), 'Prüf-Seite für Sponsor-Hinweise öffnet sich');
-  await page.waitForFunction(() => document.getElementById('sp-module').textContent === 'an');
-  ok((await page.textContent('#sp-last')).includes('nichts eingetragen'), 'Prüf-Seite zeigt das letzte Ergebnis');
-  ok(await page.textContent('#sp-segs') === '1:13–2:06', 'Prüf-Seite zeigt die Stellen im Video');
-  const spLog = await page.textContent('#sp-r-log');
-  ok(/pünktlich \(22\.2 s gewartet\)/.test(spLog) && /5:00–5:10: verpasst \(Meldungen bei 4:50 und 5:30\)/.test(spLog), `Prüf-Seite zeigt, wie pünktlich die letzten Mitteilungen kamen (${spLog})`);
-  await page.waitForFunction(() => document.getElementById('sp-r-pos').textContent !== 'Lade …');
-  ok(await page.textContent('#sp-r-next') === 'fehlt ❌' && await page.textContent('#sp-r-pos') === 'fehlt ❌', 'Röntgenblick erkennt, dass die neuen Regeln fehlen');
-  ok((await page.textContent('#sp-r-events')).includes('youtube.sponsor'), 'Röntgenblick zeigt Surge-Meldungen');
-  ok((await page.textContent('#sp-advice')).startsWith('Altes Modul installiert'), `Klartext-Empfehlung: ${(await page.textContent('#sp-advice')).slice(0, 40)}`);
-  ok(/^Zuletzt bei 1:20 im Video, vor [3-9] s$/.test(await page.textContent('#sp-pos')), `Prüf-Seite zeigt die letzte Position: ${await page.textContent('#sp-pos')}`);
-  await page.click('label[for="sp-debug"]');
-  await page.waitForFunction(() => true);
-  await page.waitForTimeout(300);
-  ok(surge.store.get('werbefrei.sponsor.debug') === 'true', 'Testmodus lässt sich in der App einschalten');
-  await page.click('[data-link-style="mix"]');
-  await page.waitForTimeout(300);
-  ok(surge.store.get('werbefrei.sponsor.link') === 'mix', 'Sprung-Link-Art lässt sich in der App wählen');
-  await page.click('#btn-sp-jumptest');
-  await page.waitForTimeout(300);
-  const jt = surge.notes.map((n) => `${n[0]} ${n[3].url}`);
-  ok(surge.notes.length === 6 && surge.notes[5][0] === 'Sprung-Test · Start' && jt.some((x) => x.startsWith('Sprung-Test A → 1:00 https://youtu.be/dQw4w9WgXcQ?t=60')) && jt.some((x) => x.includes('list=RDdQw4w9WgXcQ')),
-    'Sprung-Test: Start plus fünf Varianten mit verschiedenen Zielen');
-  surge.notes.length = 0;
-  await page.click('#btn-sp-test');
-  await page.waitForTimeout(300);
-  ok(surge.notes.length === 1 && surge.notes[0][1] === 'Testmitteilung', 'Testmitteilung wird über Surge verschickt');
-  const reloadsBefore = surge.calls.filter((c) => c.startsWith('POST /v1/profiles/reload')).length;
-  await page.click('#btn-sp-update');
-  await page.waitForFunction(() => document.getElementById('balloon-title').textContent === 'Skript neu geladen');
-  ok(surge.resourceUpdates === 1, '„Skript neu laden“ lässt Surge Module und Skripte neu herunterladen');
-  ok(surge.calls.filter((c) => c.startsWith('POST /v1/profiles/reload')).length === reloadsBefore + 1, 'Danach lädt Surge das Profil neu');
-  await shot(page, '9-hell-sponsor.png');
-  await page.click('#dlg-sponsor [data-close]');
-
-  await page.click('#sw-module');
-  ok(await titleIs(page, 'Teilweise aktiv'), 'Modul aus: „Teilweise aktiv“');
-  ok(!surge.enabled.includes(MODULE), 'Surge hat das Modul wirklich ausgeschaltet');
-  ok(surge.calls.some((c) => c.startsWith('POST /v1/modules') && c.includes('"YouTube werbefrei":false')), 'Richtige Anfrage an /v1/modules');
-
-  await page.click('#btn-pause');
-  ok(await titleIs(page, 'Pausiert'), 'Alles pausieren: „Pausiert“');
-  ok(!surge.mitm && !surge.scripting, 'MitM und Skripte sind in Surge aus');
+  // Startseite: ein Schalter für YouTube (Modul + Entschlüsselung + Skripte)
+  ok(await page.getAttribute('#sw-youtube', 'aria-checked') === 'true', 'Schalter „YouTube ohne Werbung“ steht auf AN');
+  ok((await page.textContent('#yt-sub')).startsWith('Aktiv'), 'Zeile erklärt: Aktiv');
+  await page.click('#sw-youtube');
+  ok(await titleIs(page, 'Pausiert'), 'YouTube-Schalter aus: „Pausiert“');
+  ok(!surge.mitm && !surge.scripting && !surge.enabled.includes(MODULE), 'Modul, MitM und Skripte sind in Surge aus');
+  ok(await page.isVisible('#btn-fix') && (await page.textContent('#btn-fix')) === 'Alles einschalten', 'Statuskarte bietet „Alles einschalten“ an');
   await shot(page, '2-hell-pausiert.png');
-
-  await page.click('#btn-resume');
-  ok(await titleIs(page, 'Schutz aktiv'), 'Alles an: wieder „Schutz aktiv“');
+  await page.click('#btn-fix');
+  ok(await titleIs(page, 'Schutz aktiv'), '„Alles einschalten“: wieder „Schutz aktiv“');
   ok(surge.mitm && surge.scripting && surge.enabled.includes(MODULE), 'In Surge wieder alles an');
+  ok(!(await page.isVisible('#btn-fix')), 'Knopf verschwindet, wenn alles läuft');
+
+  // Technik & Diagnose: einzelne Schalter und YouTube-Prüfung
+  await page.click('[data-action="tech"]');
+  ok(await page.isVisible('#dlg-tech'), 'Technik & Diagnose öffnet sich als eigenes Blatt');
+  await page.waitForFunction(() => /Ergebnis:/.test(document.getElementById('diag-out').textContent), null, { timeout: 8000 });
+  const diag = await page.textContent('#diag-out');
+  ok(diag.includes('YouTube-API: 2 · entschlüsselt: 1 · vom Skript verändert: 1'), 'Diagnose zählt YouTube-Anfragen richtig');
+  ok(diag.includes('initplayback: 1 · davon lokal beantwortet: 1'), 'Diagnose erkennt lokal beantwortetes initplayback');
+  ok(diag.includes('Ergebnis: Entschlüsselung und Skript laufen.'), 'Diagnose gibt ein klares Ergebnis');
+  ok(!diag.includes('geheim') && !/Sponsor|Positions-Meldungen/.test(diag), 'Diagnose ohne Abfrage-Parameter und ohne Sponsor-Teil');
+  ok(diag.includes('✂︎ oben feld 777 · 90000 B · Kennzeichnung ×1 · 1 Teil entfernt'), 'Diagnose zeigt das Feed-Protokoll des YouTube-Skripts');
+  await page.click('#sw-module');
+  ok(await titleIs(page, 'Teilweise aktiv'), 'Modul einzeln aus: „Teilweise aktiv“');
+  ok(surge.calls.some((c) => c.startsWith('POST /v1/modules') && c.includes('"YouTube werbefrei":false')), 'Richtige Anfrage an /v1/modules');
+  ok((await page.textContent('#yt-sub')).includes('Teilweise aus (Modul)'), 'Startseite sagt, was aus ist');
+  await page.click('#sw-module');
+  ok(await titleIs(page, 'Schutz aktiv'), 'Modul wieder an: „Schutz aktiv“');
+  await shot(page, '8-hell-technik.png');
+  await page.click('#dlg-tech [data-close]');
 
   await page.click('#btn-notaus');
   const url = await page.evaluate(() => window.__letzteExterneUrl);
@@ -207,31 +190,17 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await new Promise((r) => surgeServer.close(r));
   surgeServer.closeAllConnections?.();
   ok(await titleIs(page, 'Surge ist aus'), 'Surge nicht erreichbar: „Surge ist aus“');
-  ok(await page.getAttribute('#sw-module', 'disabled') !== null, 'Filterschalter sind gesperrt, solange Surge aus ist');
+  ok(await page.getAttribute('#sw-youtube', 'disabled') !== null, 'YouTube-Schalter ist gesperrt, solange Surge aus ist');
+  ok(await page.isVisible('#btn-fix') && (await page.textContent('#btn-fix')) === 'Schutz einschalten', 'Statuskarte bietet „Schutz einschalten“ an');
   await page.click('#sw-surge');
   ok(await page.evaluate(() => window.__letzteExterneUrl) === 'surge:///start', 'Hauptschalter startet Surge über surge:///start');
   surgeServer = http.createServer(surgeHandler);
   await listen(surgeServer, 6171, '127.0.0.1');
   ok(await titleIs(page, 'Schutz aktiv'), 'Nach dem Start wieder „Schutz aktiv“');
 
-  // YouTube-Diagnose (Zeile öffnet das Blatt und prüft sofort)
-  await page.click('[data-action="diag"]');
-  ok(await page.isVisible('#dlg-diag'), 'Diagnose öffnet sich als eigenes Blatt');
-  await page.waitForFunction(() => /Ergebnis:/.test(document.getElementById('diag-out').textContent), null, { timeout: 8000 });
-  const diag = await page.textContent('#diag-out');
-  ok(diag.includes('YouTube-API: 2 · entschlüsselt: 1 · vom Skript verändert: 1'), 'Diagnose zählt YouTube-Anfragen richtig');
-  ok(diag.includes('initplayback: 1 · davon lokal beantwortet: 1'), 'Diagnose erkennt lokal beantwortetes initplayback');
-  ok(diag.includes('Ergebnis: Entschlüsselung und Skript laufen.'), 'Diagnose gibt ein klares Ergebnis');
-  ok(!diag.includes('geheim'), 'Diagnose-Bericht enthält keine Abfrage-Parameter');
-  ok(diag.includes('browse · Stand werbefrei-4 · 200 KB · 3 Einträge, 2 entfernt · übrig: nichts') && diag.includes('✂︎ oben feld 777 · 90000 B · Kennzeichnung ×1 · 1 Teil entfernt') && diag.includes('✂︎ promoted_video_lockup.eml · 6000 B · zeigt auf Werbe-Inhalt') && diag.includes('behalten: video_lockup.eml'), 'Diagnose zeigt das Feed-Protokoll des YouTube-Skripts');
-  ok(diag.includes('Zwischen-Werbung (player/ad_break): 0 Anfragen'), 'Diagnose zählt Zwischen-Werbung-Anfragen');
-  ok(await page.isEnabled('#btn-diag-copy'), 'Bericht kann kopiert werden');
-  await shot(page, '8-hell-diagnose.png');
-  await page.click('#dlg-diag [data-close]');
-
-  // Werbung melden: Spurensuche starten, Bericht erstellen
-  await page.click('[data-action="adreport"]');
-  ok(await page.isVisible('#dlg-adreport'), 'Werbung melden öffnet sich als eigenes Blatt');
+  // Bericht für Claude (mit Spurensuche)
+  await page.click('[data-action="report"][data-focus="search"]');
+  ok(await page.isVisible('#dlg-report'), '„Werbung gesehen?“ öffnet das Bericht-Blatt');
   await page.waitForFunction(() => /Keine aktiv/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
   ok(true, 'Spurensuche ist zu Beginn aus');
   await page.fill('#ar-word', 'Wingo');
@@ -239,25 +208,38 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.waitForFunction(() => /Sucht nach „Wingo“/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
   const gestartet = JSON.parse(surge.store.get('werbefrei.feed.search') || '{}');
   ok(gestartet.word === 'Wingo' && gestartet.until > Date.now() + 15 * 60000, 'Spurensuche legt Suchwort für 20 Minuten in Surge ab');
-  surge.store.set('werbefrei.feed.search', JSON.stringify({ ...gestartet, v: 'werbefrei-5',
+  surge.store.set('werbefrei.feed.search', JSON.stringify({ ...gestartet, v: 'werbefrei-7',
     checked: [{ t: Date.now(), ep: 'browse', len: 830000, n: 1, out: true }],
     hits: [{ p: '9>58173949>1>58174010>4>49399797>1>50195462>1[7/20]>153515154', leaf: 'WORT', ep: 'browse', t: Date.now(), out: true,
       e: [{ at: 9, i: 7, n: 20, skel: '{153515154{2{183314536{1:eml:mystery_promo.eml}}}}', sibs: ['6: video_lockup.eml·5KB', '▶ 7: mystery_promo.eml·7KB·WORT'] }] }] }));
-  surge.store.set('werbefrei.feed.runs', JSON.stringify({ v: 'werbefrei-5', t: Date.now(), eps: { browse: { n: 3, c: 3, t: Date.now(), ms: 80, len: 830000, ch: true } } }));
-  surge.store.set('werbefrei.feed.errors', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-5', w: 'WfTop', e: 'Testfehler' }] }));
-  await page.click('#btn-ar-build');
-  await page.waitForFunction(() => /Werbe-Bericht/.test(document.getElementById('ar-out').textContent), null, { timeout: 12000 });
-  const adr = await page.textContent('#ar-out');
-  ok(adr.includes('Fundstelle 1 · browse') && adr.includes('NOCH DA') && adr.includes('Pfad: 9>58173949') && adr.includes('Eintrag 7 von 20 (Ebene 9)') && adr.includes('▶ 7: mystery_promo.eml'), 'Werbe-Bericht zeigt Fundstelle, Pfad, Bauplan und Nachbarn');
-  ok(adr.includes('Skript-Läufe (Stand werbefrei-5): browse 3×') && adr.includes('WfTop: Testfehler'), 'Werbe-Bericht zeigt Skript-Läufe und Fehler');
-  ok(adr.includes('browse: 1× · verändert 1') && adr.includes('nicht entschlüsselt: 1×') && !adr.includes('geheim'), 'Werbe-Bericht fasst Surges YouTube-Anfragen zusammen, ohne Abfrage-Parameter');
-  ok(adr.includes('Feed-Protokoll (neueste zuerst):'), 'Werbe-Bericht enthält das Feed-Protokoll');
-  ok(await page.isEnabled('#btn-ar-copy'), 'Werbe-Bericht kann kopiert werden');
+  surge.store.set('werbefrei.feed.runs', JSON.stringify({ v: 'werbefrei-7', t: Date.now(), eps: { browse: { n: 3, c: 3, t: Date.now(), ms: 80, len: 830000, ch: true } } }));
+  surge.store.set('werbefrei.feed.errors', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-7', w: 'WfTop', e: 'Testfehler' }] }));
+  await page.click('#btn-rep-copy');
+  await page.waitForFunction(() => /^Kopiert/.test(document.getElementById('rep-note').textContent), null, { timeout: 12000 });
+  const adr = await page.textContent('#rep-out');
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  ok(clip === adr && adr.startsWith('Bericht für Claude'), 'Ein Tipp: Bericht wird erstellt und in die Zwischenablage kopiert');
+  ok(adr.includes('Modul „YouTube werbefrei“: an · MitM: an · Skripte: an') && adr.includes('Ergebnis: Entschlüsselung und Skript laufen.'), 'Bericht enthält Zustand und Diagnose-Ergebnis');
+  ok(adr.includes('NextDNS (dieses iPhone): NextDNS aktiv'), 'Bericht enthält den NextDNS-Zustand');
+  ok(adr.includes('Fundstelle 1 · browse') && adr.includes('NOCH DA') && adr.includes('Pfad: 9>58173949') && adr.includes('▶ 7: mystery_promo.eml'), 'Bericht enthält die Spurensuche');
+  ok(adr.includes('Skript-Läufe (Stand werbefrei-7): browse 3×') && adr.includes('WfTop: Testfehler'), 'Bericht enthält Skript-Läufe und Fehler');
+  ok(adr.includes('browse: 1× · verändert 1') && adr.includes('nicht entschlüsselt: 1×') && !adr.includes('geheim') && !adr.includes(KEY), 'Bericht ohne Abfrage-Parameter und ohne Schlüssel');
+  ok(adr.includes('Feed-Protokoll (neueste zuerst):') && adr.includes('Letzte Aktionen:') && adr.includes('App: v28'), 'Bericht enthält Feed-Protokoll, letzte Aktionen und App-Version');
   await page.click('#btn-ar-stop');
   await page.waitForFunction(() => /Beendet: „Wingo“/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
   ok(JSON.parse(surge.store.get('werbefrei.feed.search')).hits.length === 1, 'Beenden stoppt die Suche und behält die Fundstellen');
-  await shot(page, '8b-hell-werbung-melden.png');
-  await page.click('#dlg-adreport [data-close]');
+  await shot(page, '8b-hell-bericht.png');
+  await page.click('#dlg-report [data-close]');
+
+  // Ganzer Haushalt (Fritzbox-Anleitung)
+  await page.click('[data-action="home"]');
+  ok(await page.isVisible('#dlg-home'), 'Haushalt-Anleitung öffnet sich');
+  await page.click('[data-copy="94.140.14.14"]');
+  await page.waitForTimeout(200);
+  ok(await page.evaluate(() => navigator.clipboard.readText()) === '94.140.14.14', 'Kopier-Knopf legt die DNS-Adresse in die Zwischenablage');
+  ok((await page.textContent('#dlg-home')).includes('dns.adguard-dns.com'), 'Anleitung nennt den verschlüsselten DNS-Namen');
+  await shot(page, '10-hell-haushalt.png');
+  await page.click('#dlg-home [data-close]');
 
   // Verlauf
   await page.click('[data-action="log"]');
@@ -329,8 +311,10 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   const bg = await dark.page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   ok(bg === 'rgb(0, 0, 0)', `Dunkler Hintergrund wie iOS (${bg})`);
   await shot(dark.page, '5-dunkel-aktiv.png');
+  await dark.page.click('[data-action="tech"]');
   await dark.page.click('#sw-scripting');
   ok(await titleIs(dark.page, 'Teilweise aktiv'), 'Dunkel: Skripte aus → „Teilweise aktiv“');
+  await dark.page.click('#dlg-tech [data-close]');
   await shot(dark.page, '6-dunkel-teilweise.png');
   await dark.page.click('[data-action="settings"]');
   await dark.page.click('[data-theme-choice="light"]');

@@ -1,19 +1,6 @@
 #!name=YouTube Sponsor-Hinweise
-#!desc=Sponsor-Wächter: Läuft im Video Werbung des Influencers, kommt pünktlich zum Beginn eine Mitteilung. Antippen springt hinter die Stelle. Daten von SponsorBlock. (Modul v7)
-#!arguments=Sponsor:true,Eigenwerbung:true,AboAufruf:false,Vorschau:false,Testmodus:false
-#!arguments-desc=Sponsor: bezahlte Werbung im Video (true/false)\nEigenwerbung: Merch, eigene Produkte (true/false)\nAboAufruf: „Abonniert und liked“ (true/false)\nVorschau: zusätzlich beim Videostart alle Stellen melden (true/false)\nTestmodus: Mitteilungen auch, wenn nichts gefunden wurde (true/false)
+#!desc=Stillgelegt (16.11.2026). Die Sponsor-Hinweise wurden entfernt. Dieses Modul tut nichts mehr und kann in Surge gelöscht werden.
 
-# A) Beim Öffnen eines Videos (/youtubei/v1/next, /player, /get_watch) wird das Video erkannt.
-#    An SponsorBlock gehen nur 4 Zeichen eines Hashes der Video-Kennung.
-# B) Während der Wiedergabe meldet die App ihre Position an YouTube (/api/stats/…).
-#    Das Skript liest nur mit (Adresse und Inhalt) und meldet sich, wenn eine Sponsor-Stelle läuft.
-#    Beginnt eine Stelle in den nächsten 35 s, wartet es mit dieser Meldung bis zum Beginn und meldet
-#    sich dann pünktlich (darum timeout=40 und "hold":35).
-# Alle Anfragen werden unverändert weitergeschickt.
-
-[Script]
-youtube.sponsor.v7.start = type=http-request,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(next|player|get_watch)(\?.*)?$,requires-body=1,max-size=-1,binary-body-mode=1,timeout=10,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"vorschau":{{{Vorschau}}},"debug":{{{Testmodus}}}}"
-youtube.sponsor.v7.wiedergabe = type=http-request,pattern=^https:\/\/(s|www)\.youtube\.com\/api\/stats\/,requires-body=1,max-size=262144,binary-body-mode=1,timeout=40,script-path=https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/sponsor-hinweise.js,argument="{"sponsor":{{{Sponsor}}},"selfpromo":{{{Eigenwerbung}}},"interaction":{{{AboAufruf}}},"vorschau":{{{Vorschau}}},"debug":{{{Testmodus}}},"hold":35}"
-
-[MITM]
-hostname = %APPEND% youtubei.googleapis.com, s.youtube.com, www.youtube.com
+# Absichtlich leer: keine Regeln, keine Entschlüsselung.
+# Falls Surge noch eine ältere Fassung mit Regeln nutzt, lässt das Skript
+# scripts/youtube/sponsor-hinweise.js jede Anfrage sofort unverändert durch.

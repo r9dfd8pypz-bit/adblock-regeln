@@ -1,11 +1,12 @@
 # Schritt 4: Die Werbefrei-Zentrale als App aufs iPhone
 
-Eine eigene kleine App, schlicht im Stil der iPhone-Einstellungen. Hell und Dunkel folgen dem iPhone. Damit schaltest du die wichtigsten Dinge mit einem Tipp:
+Eine eigene kleine App, schlicht im Stil der iPhone-Einstellungen. Hell und Dunkel folgen dem iPhone. Sie ist von oben nach unten so aufgebaut:
 
-- **Hauptschalter und „Alles sofort stoppen“** für Surge. Das funktioniert **immer**, auch ohne weitere Einrichtung.
-- **YouTube werbefrei**, **HTTPS-Entschlüsselung** und **Skripte** einzeln oder alle zusammen („Alles pausieren“ / „Alles an“).
-- Den **NextDNS-Status** prüfen und die Logs öffnen.
-- **Profil neu laden** (holt neue Regeln aus dem Repo) und **DNS-Cache leeren**.
+- **Statuskarte:** Grün heißt, alles läuft. Ist etwas aus, steht dort ein Knopf, der es mit einem Tipp repariert („Alles einschalten“ oder „Schutz einschalten“).
+- **Steuerung:** **Schutz** startet oder stoppt Surge. **YouTube ohne Werbung** schaltet den YouTube-Filter an oder pausiert ihn. Darunter **Alles sofort stoppen**, das funktioniert **immer**, auch ohne weitere Einrichtung.
+- **Hilfe von Claude:** **Werbung gesehen?** startet die Spurensuche. **Bericht für Claude** kopiert mit einem Tipp alles, was ich zur Fehlersuche brauche.
+- **Zuhause & Internet:** NextDNS-Status dieses iPhones, die Anleitung **Ganzer Haushalt** (Fritzbox) und das NextDNS-Protokoll.
+- **Wartung:** **Regeln & Skripte aktualisieren**, **Technik & Diagnose** (die drei Teile des YouTube-Filters einzeln, YouTube prüfen, DNS-Cache leeren) und der **Verlauf**.
 
 Die App öffnet sich auch ohne Internet, denn genau dann brauchst du „Alles sofort stoppen“.
 
@@ -63,21 +64,26 @@ Das geht erst, wenn Surge nach [Schritt 2](2-surge-youtube.md) eingerichtet ist,
 | Rot mit Kreuz | **Schlüssel passt nicht** |
 | Grau | **Surge ist aus** oder noch nicht eingerichtet |
 
-Unter **Werkzeuge → YouTube-Diagnose** siehst du, ob YouTube wirklich entschlüsselt und gefiltert wird. Das **Feed-Protokoll** darunter zeigt für die letzten Startseiten- und Video-Antworten, welche Einträge als Werbung entfernt wurden (✂︎) und ob danach noch Werbe-Merkmale übrig sind. Es enthält nur Vorlagen-Namen und Größen, keine Titel. Siehst du trotzdem eine Anzeige, tippe direkt danach auf **Bericht kopieren** und schick den Text weiter. Kommt trotzdem Werbung, hilft **Werkzeuge → Werbung melden**:
+## Wenn trotzdem Werbung kommt
 
-1. Ein Wort aus der Anzeige eintippen, am besten den Firmennamen unter „Gesponsert“, und **Spurensuche starten** tippen.
+1. Auf **Werbung gesehen?** tippen und ein Wort aus der Anzeige eintippen, am besten den Firmennamen unter „Gesponsert“. Dann **Spurensuche starten** tippen.
 2. In YouTube die Startseite nach unten ziehen und scrollen, bis die Anzeige wieder auftaucht.
-3. Zurück in Werbefrei auf **Bericht erstellen** und dann auf **Bericht kopieren** tippen und den Text weiterschicken.
+3. Zurück in Werbefrei auf **Bericht kopieren** tippen und den Text im Chat einfügen.
 
-Der Bericht zeigt, wo genau die Anzeige in der YouTube-Antwort steckt und ob der Filter sie erwischt hat. Er enthält auch, welche Fassung des Skripts lief, ob Fehler auftraten und welche YouTube-Schnittstellen Surge gesehen hat. Gespeichert werden nur Feldnummern, Größen, Vorlagen- und Server-Namen, keine Titel oder Texte, nur dein Suchwort.
+Der Bericht zeigt:
+- wo genau die Anzeige in der YouTube-Antwort steckt und ob der Filter sie erwischt hat,
+- welche Fassung des Skripts lief und ob Fehler auftraten,
+- welche YouTube-Schnittstellen Surge gesehen hat, dazu das Feed-Protokoll und deine letzten Aktionen in der App.
 
-Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
+Gespeichert werden nur Feldnummern, Größen, Vorlagen- und Server-Namen. Keine Titel oder Texte, nur dein Suchwort.
+
+Auch ohne Spurensuche hilft **Bericht für Claude** bei jedem Problem.
 
 ## Sicherheit
 
 - Die Schnittstelle lauscht nur auf `127.0.0.1`, also **nur auf dem iPhone selbst**. Andere Geräte im WLAN kommen nicht heran. Trag dort nie `0.0.0.0` ein.
 - Schlüssel und Einstellungen bleiben auf dem iPhone. Sie stehen nicht im Repo.
-- Die App lädt nichts von fremden Servern. Sie spricht nur mit Surge (127.0.0.1) und mit `test.nextdns.io` für den Status. `node tests/pruefen.mjs` prüft das automatisch.
+- Die App lädt nichts von fremden Servern. Sie spricht nur mit Surge (127.0.0.1), mit `test.nextdns.io` für den Status und mit deinem Repo, um zu sehen, welche Skript-Fassung online liegt. `node tests/pruefen.mjs` prüft das automatisch.
 
 ## Gut zu wissen
 
@@ -85,25 +91,6 @@ Unter **Werkzeuge → Verlauf** stehen die letzten Aktionen.
 - Laut dem Projekt hinter Surges Web-Dashboard kann die HTTP-Schnittstelle nach dem Kauf ein aktives Update-Abo brauchen. Das konnte ich nicht sicher klären. In der Testwoche geht alles, und „Alles sofort stoppen“ und der Hauptschalter funktionieren in jedem Fall.
 - Wenn die App selbst einmal nicht reagiert: iPhone-**Einstellungen** öffnen und oben **VPN** ausschalten. Das stoppt Surge ebenfalls.
 
-## Sponsor-Hinweise (Werbung der Influencer im Video)
+## Sponsor-Hinweise (entfernt)
 
-Viele YouTuber sprechen im Video selbst Werbung ein. In **SponsorBlock** tragen Nutzer weltweit ein, von wann bis wann das passiert. Der **Sponsor-Wächter** nutzt das:
-
-1. **Beim Öffnen eines Videos** holt er die eingetragenen Stellen. An SponsorBlock gehen dabei nur 4 Zeichen eines Hashes der Video-Kennung.
-2. **Während das Video läuft**, meldet die YouTube-App alle 10 bis 40 Sekunden ihre Position an YouTube. Der Wächter liest diese Meldung mit.
-3. **Beginnt eine Sponsor-Stelle in den nächsten 35 Sekunden**, hält der Wächter diese Meldung so lange an und meldet sich **pünktlich zum Beginn**: *„⏭ Sponsor beginnt jetzt · 54 s · Tippen = weiter bei 2:06“*. Danach geht die Meldung unverändert an YouTube.
-4. **Läuft eine Stelle schon**, kommt die Mitteilung sofort: *„⏭ Sponsor läuft – noch 46 s“*.
-
-Tippst du auf das Banner, springt YouTube 1 Sekunde hinter das Ende der Stelle. Läuft das Video schon, ignoriert YouTube manche Sprung-Links. Welche Link-Art auf deinem iPhone wirklich springt, findest du unter **Werkzeuge → Sponsor-Hinweise prüfen → Sprung-Test** heraus. Dort wählst du dann den passenden Buchstaben A bis E.
-
-Einrichten:
-- In der App unter **YouTube → Sponsor-Hinweise** auf **Installieren** tippen, dann den Schalter einschalten. Nach Änderungen am Modul: **Werkzeuge → Sponsor-Hinweise prüfen → Modul aktualisieren** und in Surge bestätigen. „Skript neu laden“ aktualisiert nur das Skript, nicht das Modul.
-- Surge muss Mitteilungen senden dürfen: In Surge auf der Startseite (Tab *General*, ganz unten) Mitteilungen erlauben.
-
-Prüfen: **Werkzeuge → Sponsor-Hinweise prüfen** zeigt die Stellen im aktuellen Video, die letzte gemeldete Position und unter **Letzte Mitteilungen**, wie pünktlich die letzten Hinweise kamen („pünktlich“, „3 s nach Beginn“, „verpasst“). Steht bei „Positions-Meldungen“ nach ein paar Sekunden Video noch „keine“, liest Surge nicht mit. Meist ist dann noch das alte Modul installiert: **Modul aktualisieren**, in Surge bestätigen und YouTube neu öffnen. Bis dahin meldet das Skript die Stellen wie früher beim Videostart.
-
-Gut zu wissen:
-- Es klappt nur bei Videos, die schon jemand eingetragen hat. Bei großen Kanälen ist das meist der Fall.
-- Pünktlich klappt es nur mit dem Modul ab v7, das dem Wächter bis zu 40 Sekunden Zeit gibt. Mit einem älteren Modul kommt die Mitteilung manchmal kurz vorher („⏭ Sponsor beginnt gleich“). Dann **Modul aktualisieren**.
-- Pausierst oder springst du, während der Wächter wartet, verwirft er die alte Planung und richtet sich nach der neuen Position.
-- Ein automatisches Überspringen ohne Antippen geht in der offiziellen YouTube-App nicht. Dafür bräuchte es eine umgebaute App, und bei uYouEnhanced ist diese Funktion seit August 2026 wegen Abstürzen abgeschaltet.
+Die Mitteilungen bei Influencer-Werbung im Video (SponsorBlock) sind seit dem 16.11.2026 entfernt. Ein Sprung im laufenden Video klappte in der YouTube-App nicht zuverlässig. Beim nächsten Öffnen schaltet die App das alte Modul „YouTube Sponsor-Hinweise“ einmal aus und räumt seine Daten weg. Das Modul selbst kannst du in Surge löschen: **Modify → Module**, nach links wischen, **Löschen**. Bleibt es installiert, tut es nichts mehr.

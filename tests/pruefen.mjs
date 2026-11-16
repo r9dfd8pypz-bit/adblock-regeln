@@ -27,7 +27,7 @@ function ok(bedingung, text) {
 }
 
 // ---------- 1. Module ----------
-const MODULE = ["youtube-werbefrei.sgmodule", "youtube-sponsor-hinweise.sgmodule"];
+const MODULE = ["youtube-werbefrei.sgmodule"];
 for (const name of MODULE) {
   const text = readFileSync(join(ROOT, "modules", name), "utf8");
   const zeilen = text.split("\n").filter((z) => !z.startsWith("#") || z.startsWith("#!"));
@@ -50,6 +50,9 @@ for (const name of MODULE) {
   for (const h of mitmHosts) ok(ERLAUBTE_MITM_HOSTS.has(h), `${name}: MITM nur für erlaubte Adresse: ${h}`);
 }
 const modul = readFileSync(join(ROOT, "modules/youtube-werbefrei.sgmodule"), "utf8");
+// Stillgelegtes Sponsor-Modul: keine Regeln, keine Entschlüsselung
+const sponsorModul = readFileSync(join(ROOT, "modules/youtube-sponsor-hinweise.sgmodule"), "utf8");
+ok(!/script-path|\[Script\]|\[MITM\]|hostname\s*=/.test(sponsorModul), "Sponsor-Modul ist stillgelegt (keine Regeln, keine Entschlüsselung)");
 
 // ---------- 2. Skript ----------
 const skriptPfad = join(ROOT, "scripts/youtube/youtube.response.js");
@@ -64,13 +67,10 @@ const unbekannt = [...urlsImSkript].filter((u) => !ERLAUBTE_URLS_IM_SKRIPT.has(u
 ok(unbekannt.length === 0, `Skript enthält keine fremden Server ${unbekannt.join(" ")}`);
 ok(!/workers\.dev/.test(skript), "Skript enthält keinen Cloudflare-Worker");
 
-// Eigenes Sponsor-Skript: darf nur SponsorBlock fragen und keinen Code nachladen
+// Stillgelegtes Sponsor-Skript: lässt jede Anfrage sofort durch, sonst nichts
 const sponsor = readFileSync(join(ROOT, "scripts/youtube/sponsor-hinweise.js"), "utf8");
-const sponsorHosts = new Set([...sponsor.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
-ok([...sponsorHosts].every((h) => ["sponsor.ajay.app", "youtu.be", "www.youtube.com", "m.youtube.com"].includes(h)), `Sponsor-Skript fragt nur SponsorBlock (dazu YouTube-Sprunglinks) ${[...sponsorHosts].join(" ")}`);
-ok(/\$httpClient\.get\(\{ url,/.test(sponsor) && (sponsor.match(/\$httpClient\./g) || []).length === 1, "Sponsor-Skript stellt genau eine Netzwerkanfrage (an SponsorBlock)");
-ok(!/\beval\(|new Function|\brequire\(|\bimport\(/.test(sponsor), "Sponsor-Skript lädt keinen fremden Code nach");
-ok(/sha256Hex\(id\)\.slice\(0, 4\)/.test(sponsor), "Sponsor-Skript sendet nur 4 Zeichen des Hashes");
+const sponsorCode = sponsor.split("\n").filter((z) => !z.trim().startsWith("//")).join("").trim();
+ok(sponsorCode === "$done({});", `Sponsor-Skript ist stillgelegt (nur $done) ${sponsorCode.slice(0, 40)}`);
 
 // ---------- App (Werbefrei-Zentrale) ----------
 const appHtml = readFileSync(join(ROOT, "app/index.html"), "utf8");
@@ -81,16 +81,16 @@ ok(appJs.includes(`module: '${modulName}'`), `App kennt den Modulnamen „${modu
 const fremdeQuellen = [...appHtml.matchAll(/<(?:script|link)[^>]+(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]);
 ok(fremdeQuellen.length === 0, `App lädt keine Skripte oder Styles von fremden Servern ${fremdeQuellen.join(" ")}`);
 ok(!/@import|url\(\s*["']?https?:/.test(appCss), "Stylesheet lädt nichts von fremden Servern");
-const ERLAUBTE_APP_HOSTS = new Set(["127.0.0.1", "my.nextdns.io", "test.nextdns.io", "apple.nextdns.io", "dns.nextdns.io", "github.com", "apps.apple.com", "raw.githubusercontent.com", "youtu.be", "www.youtube.com", "m.youtube.com"]);
+const ERLAUBTE_APP_HOSTS = new Set(["127.0.0.1", "my.nextdns.io", "test.nextdns.io", "apple.nextdns.io", "dns.nextdns.io", "github.com", "apps.apple.com", "raw.githubusercontent.com", "fritz.box", "d3ward.github.io"]);
 const appHosts = new Set([...(appHtml + appJs).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
 const fremdeHosts = [...appHosts].filter((h) => !ERLAUBTE_APP_HOSTS.has(h));
 ok(fremdeHosts.length === 0, `App spricht nur mit Surge, NextDNS, GitHub und App Store ${fremdeHosts.join(" ")}`);
 ok(/surge:\/\/\/\$\{stop \? 'stop' : 'start'\}/.test(appJs), "NOTAUS nutzt den offiziellen Befehl surge:///stop");
 const installLinks = [...new Set([...appHtml.matchAll(/href="surge:\/\/\/install-module\?url=([^"]+)"/g)].map((m) => decodeURIComponent(m[1])))].sort();
-ok(JSON.stringify(installLinks) === JSON.stringify([RAW_BASE + "modules/youtube-sponsor-hinweise.sgmodule", RAW_BASE + "modules/youtube-werbefrei.sgmodule"]),
-  "Installieren-Knöpfe zeigen auf die Module im eigenen Repo");
+ok(JSON.stringify(installLinks) === JSON.stringify([RAW_BASE + "modules/youtube-werbefrei.sgmodule"]),
+  "Installieren-Knopf zeigt auf das YouTube-Modul im eigenen Repo (Sponsor-Modul nicht mehr)");
 ok(appJs.includes("const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';") && readFileSync(join(ROOT, "modules/youtube-sponsor-hinweise.sgmodule"), "utf8").includes("#!name=YouTube Sponsor-Hinweise"),
-  "App kennt den Namen des Sponsor-Moduls");
+  "App kennt den Namen des alten Sponsor-Moduls (zum einmaligen Ausschalten)");
 
 // ---------- 3. Probelauf ----------
 // Kleine protobuf-Helfer

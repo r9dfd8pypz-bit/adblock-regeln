@@ -551,3 +551,24 @@ dl.text-list > div { padding-left: 16px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Großer Knopf (z. B. „Bericht kopieren“) */
+.big-btn {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--blue);
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+}
+.big-btn:active { opacity: 0.7; }
+.big-btn:disabled { opacity: 0.5; }
+
+/* Werte zum Kopieren in Anleitungen */
+.copy-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.copy-row code { font-size: 15px; -webkit-user-select: all; user-select: all; overflow-wrap: anywhere; }

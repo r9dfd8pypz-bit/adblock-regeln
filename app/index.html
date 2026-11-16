@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="werbefrei-version" content="v28 · 16.11.2026">
 <title>Werbefrei</title>
 <meta name="description" content="Schalter für den Werbeblocker auf dem iPhone: Surge, YouTube-Filter und NextDNS.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -59,88 +60,67 @@
       <h2 id="status-title">Verbinde …</h2>
       <p id="status-text"></p>
     </div>
+    <button type="button" class="pill pill-filled" id="btn-fix" hidden>Alles einschalten</button>
     <button type="button" class="pill pill-filled" id="btn-setup" hidden>Jetzt einrichten</button>
   </section>
 
   <section class="section">
-    <h3 class="section-header">Schutz</h3>
+    <h3 class="section-header">Steuerung</h3>
     <ul class="list">
       <li class="row">
         <span class="tile" style="--tile: var(--green)"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>
-        <label class="row-text" for="sw-surge"><strong>Surge</strong><small>Lokales VPN auf diesem iPhone</small></label>
-        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-surge" aria-label="Surge"></button>
+        <label class="row-text" for="sw-surge"><strong>Schutz</strong><small>Surge: Filter auf diesem iPhone</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-surge" aria-label="Schutz (Surge)"></button>
+      </li>
+      <li class="row">
+        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-play"/></svg></span>
+        <label class="row-text" for="sw-youtube"><strong>YouTube ohne Werbung</strong><small id="yt-sub">Werbung in der YouTube-App entfernen</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-youtube" aria-label="YouTube ohne Werbung"></button>
       </li>
     </ul>
     <ul class="list list-gap">
       <li><button type="button" class="row-action destructive" id="btn-notaus">Alles sofort stoppen</button></li>
     </ul>
-    <p class="section-footer">Stoppt Surge komplett. Dein iPhone läuft dann ganz normal, ohne Filter.</p>
+    <p class="section-footer">Nach dem Einschalten von YouTube die YouTube-App einmal ganz schließen und neu öffnen. „Alles sofort stoppen“ beendet Surge, dein iPhone läuft dann ganz normal.</p>
   </section>
 
   <section class="section">
-    <h3 class="section-header">YouTube</h3>
+    <h3 class="section-header">Hilfe von Claude</h3>
     <ul class="list">
-      <li class="row">
-        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-play"/></svg></span>
-        <label class="row-text" for="sw-module"><strong>Werbefilter</strong><small id="module-sub">Werbung in der YouTube-App entfernen</small></label>
-        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-module" aria-label="Werbefilter"></button>
-      </li>
-      <li class="row">
-        <span class="tile" style="--tile: var(--blue)"><svg aria-hidden="true"><use href="#i-lock"/></svg></span>
-        <label class="row-text" for="sw-mitm"><strong>HTTPS-Entschlüsselung</strong><small>Nur für die YouTube-Adressen</small></label>
-        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-mitm" aria-label="HTTPS-Entschlüsselung"></button>
-      </li>
-      <li class="row">
-        <span class="tile" style="--tile: var(--purple)"><svg aria-hidden="true"><use href="#i-code"/></svg></span>
-        <label class="row-text" for="sw-scripting"><strong>Skripte</strong><small>Löschen die Werbung aus den Antworten</small></label>
-        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-scripting" aria-label="Skripte"></button>
-      </li>
-      <li class="row">
-        <span class="tile" style="--tile: var(--orange)"><svg aria-hidden="true"><use href="#i-forward"/></svg></span>
-        <label class="row-text" for="sw-sponsor"><strong>Sponsor-Hinweise</strong><small id="sponsor-sub">Mitteilung bei Influencer-Werbung, antippen = überspringen</small></label>
-        <a class="pill" id="sponsor-install" href="surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fr9dfd8pypz-bit%2Fadblock-regeln%2Fmain%2Fmodules%2Fyoutube-sponsor-hinweise.sgmodule" hidden>Installieren</a>
-        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-sponsor" aria-label="Sponsor-Hinweise"></button>
-      </li>
-      <li class="row row-split">
-        <button type="button" class="split-btn" id="btn-pause">Pausieren</button>
-        <button type="button" class="split-btn" id="btn-resume">Alles an</button>
-      </li>
+      <li><button type="button" class="row row-link" data-action="report" data-focus="search">
+        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
+        <span class="row-text"><strong>Werbung gesehen?</strong><small>Spurensuche starten, zeigt genau, wo sie steckt</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><button type="button" class="row row-link" data-action="report">
+        <span class="tile" style="--tile: var(--indigo)"><svg aria-hidden="true"><use href="#i-list"/></svg></span>
+        <span class="row-text"><strong>Bericht für Claude</strong><small>Alles in einem Text: kopieren und mir schicken</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
     </ul>
-    <p class="section-footer">Nach dem Einschalten die YouTube-App einmal ganz schließen und neu öffnen.</p>
   </section>
 
   <section class="section">
-    <h3 class="section-header">NextDNS</h3>
+    <h3 class="section-header">Zuhause &amp; Internet</h3>
     <ul class="list">
       <li class="row">
         <span class="tile" style="--tile: var(--teal)"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>
-        <div class="row-text"><strong id="dns-title">Noch nicht geprüft</strong><small id="dns-text">Sperrt Werbe-Domains in allen Apps</small></div>
+        <div class="row-text"><strong id="dns-title">NextDNS</strong><small id="dns-text">Sperrt Werbe-Domains in allen Apps dieses iPhones</small></div>
         <span class="dot" id="dns-led" data-level="idle" aria-hidden="true"></span>
         <button type="button" class="pill" id="btn-dns-check">Prüfen</button>
       </li>
-      <li><a class="row row-link" id="link-dns" href="https://my.nextdns.io" target="_blank" rel="noopener"><span class="row-text"><strong>Logs öffnen</strong></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
-      <li><a class="row row-link" href="https://test.nextdns.io" target="_blank" rel="noopener"><span class="row-text"><strong>Testseite</strong></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
+      <li><button type="button" class="row row-link" data-action="home">
+        <span class="tile" style="--tile: var(--blue)"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>
+        <span class="row-text"><strong>Ganzer Haushalt</strong><small>Werbefilter für alle Geräte im WLAN (Fritzbox)</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
+      <li><a class="row row-link" id="link-dns" href="https://my.nextdns.io" target="_blank" rel="noopener"><span class="row-text"><strong>NextDNS-Protokoll</strong><small>Was auf diesem iPhone gesperrt wurde</small></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
     </ul>
   </section>
 
   <section class="section">
-    <h3 class="section-header">Werkzeuge</h3>
+    <h3 class="section-header">Wartung</h3>
     <ul class="list">
-      <li><button type="button" class="row row-link" data-action="adreport">
-        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
-        <span class="row-text"><strong>Werbung melden</strong><small>Genauer Bericht, wenn trotzdem Werbung kommt</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
-      <li><button type="button" class="row row-link" data-action="diag">
-        <span class="tile" style="--tile: var(--indigo)"><svg aria-hidden="true"><use href="#i-search"/></svg></span>
-        <span class="row-text"><strong>YouTube-Diagnose</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
-      <li><button type="button" class="row row-link" data-action="sponsor">
-        <span class="tile" style="--tile: var(--orange)"><svg aria-hidden="true"><use href="#i-forward"/></svg></span>
-        <span class="row-text"><strong>Sponsor-Hinweise prüfen</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
       <li><button type="button" class="row row-link" id="btn-reload">
         <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span>
-        <span class="row-text"><strong>Regeln &amp; Skripte aktualisieren</strong><small>Holt die neueste Fassung aus deinem Repo</small></span></button></li>
-      <li><button type="button" class="row row-link" id="btn-flush">
-        <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-trash"/></svg></span>
-        <span class="row-text"><strong>DNS-Cache leeren</strong></span></button></li>
+        <span class="row-text"><strong>Regeln &amp; Skripte aktualisieren</strong><small>Holt die neueste Fassung, danach YouTube neu öffnen</small></span></button></li>
+      <li><button type="button" class="row row-link" data-action="tech">
+        <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-code"/></svg></span>
+        <span class="row-text"><strong>Technik &amp; Diagnose</strong><small>Einzelne Schalter, YouTube prüfen, DNS-Cache</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
       <li><button type="button" class="row row-link" data-action="log">
         <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-clock"/></svg></span>
         <span class="row-text"><strong>Verlauf</strong></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>
@@ -167,35 +147,23 @@
   </section>
 </main>
 
-<!-- Diagnose -->
-<dialog class="sheet" id="dlg-diag" aria-labelledby="dlg-diag-title">
+<!-- Bericht für Claude (mit Spurensuche) -->
+<dialog class="sheet" id="dlg-report" aria-labelledby="dlg-report-title">
   <header class="sheet-header">
     <span></span>
-    <h2 class="sheet-title" id="dlg-diag-title">YouTube-Diagnose</h2>
-    <button type="button" class="nav-btn bold" data-close>Fertig</button>
-  </header>
-  <div class="sheet-body">
-    <p class="section-footer">Erst ein paar Sekunden YouTube benutzen (Startseite, ein Video), dann prüfen. Den Bericht kannst du kopieren und mir schicken.</p>
-    <div class="pill-row">
-      <button type="button" class="pill" id="btn-diag">Erneut prüfen</button>
-      <button type="button" class="pill" id="btn-diag-copy" disabled>Bericht kopieren</button>
-    </div>
-    <pre class="code diag" id="diag-out" hidden></pre>
-  </div>
-</dialog>
-
-<!-- Werbung melden: Spurensuche + genauer Bericht -->
-<dialog class="sheet" id="dlg-adreport" aria-labelledby="dlg-adreport-title">
-  <header class="sheet-header">
-    <span></span>
-    <h2 class="sheet-title" id="dlg-adreport-title">Werbung melden</h2>
+    <h2 class="sheet-title" id="dlg-report-title">Bericht für Claude</h2>
     <button type="button" class="nav-btn bold" data-close>Fertig</button>
   </header>
   <div class="sheet-body help">
+    <p class="section-footer">Ein Text mit allem, was ich zur Fehlersuche brauche: Zustand von Surge und YouTube-Filter, Fehler, Feed-Protokoll, Spurensuche und deine letzten Aktionen. Ohne Videotitel, ohne Schlüssel.</p>
+    <button type="button" class="big-btn" id="btn-rep-copy">Bericht kopieren</button>
+    <p class="section-footer" id="rep-note" aria-live="polite">Danach hier im Chat einfügen.</p>
+
+    <h3 class="section-header" id="rep-search">Werbung gesehen? Spurensuche</h3>
     <ol class="list text-list">
       <li>Ein Wort aus der Anzeige eintippen, am besten den <strong>Firmennamen</strong> unter „Gesponsert“ (z. B. „Wingo“), und <strong>Spurensuche starten</strong> tippen.</li>
       <li>Zu YouTube wechseln, die Startseite <strong>nach unten ziehen</strong> (neu laden) und scrollen, bis die Anzeige wieder auftaucht.</li>
-      <li>Zurück hierher, auf <strong>Bericht erstellen</strong> und dann auf <strong>Bericht kopieren</strong> tippen und mir den Text schicken.</li>
+      <li>Zurück hierher und oben auf <strong>Bericht kopieren</strong> tippen.</li>
     </ol>
     <ul class="list">
       <li class="field"><label for="ar-word">Wort aus der Anzeige</label>
@@ -206,88 +174,81 @@
       <button type="button" class="pill" id="btn-ar-start">Spurensuche starten</button>
       <button type="button" class="pill" id="btn-ar-stop">Beenden</button>
     </div>
-    <div class="pill-row">
-      <button type="button" class="pill" id="btn-ar-build">Bericht erstellen</button>
-      <button type="button" class="pill" id="btn-ar-copy" disabled>Bericht kopieren</button>
-    </div>
-    <pre class="code diag" id="ar-out" hidden></pre>
-    <p class="section-footer">Die Spurensuche läuft 20 Minuten. Gespeichert werden nur Fundstellen, also Feldnummern, Größen, Vorlagen-Namen und Server-Namen. Videotitel oder andere Texte werden nicht gespeichert, nur dein Suchwort. Alles bleibt in Surge auf diesem iPhone, bis du den Bericht selbst kopierst.</p>
+    <p class="section-footer">Die Spurensuche läuft 20 Minuten. Gespeichert werden nur Fundstellen (Feldnummern, Größen, Vorlagen- und Server-Namen) und dein Suchwort. Alles bleibt in Surge auf diesem iPhone, bis du den Bericht kopierst.</p>
+
+    <h3 class="section-header">Zuletzt kopierter Bericht</h3>
+    <pre class="code diag" id="rep-out">Noch keiner – oben auf „Bericht kopieren“ tippen.</pre>
   </div>
 </dialog>
 
-<!-- Sponsor-Hinweise prüfen -->
-<dialog class="sheet" id="dlg-sponsor" aria-labelledby="dlg-sponsor-title">
+<!-- Technik & Diagnose -->
+<dialog class="sheet" id="dlg-tech" aria-labelledby="dlg-tech-title">
   <header class="sheet-header">
     <span></span>
-    <h2 class="sheet-title" id="dlg-sponsor-title">Sponsor-Hinweise</h2>
+    <h2 class="sheet-title" id="dlg-tech-title">Technik &amp; Diagnose</h2>
+    <button type="button" class="nav-btn bold" data-close>Fertig</button>
+  </header>
+  <div class="sheet-body">
+    <h3 class="section-header">YouTube-Filter im Einzelnen</h3>
+    <ul class="list">
+      <li class="row">
+        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-play"/></svg></span>
+        <label class="row-text" for="sw-module"><strong>Modul</strong><small id="module-sub">„YouTube werbefrei“ in Surge</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-module" aria-label="Modul"></button>
+      </li>
+      <li class="row">
+        <span class="tile" style="--tile: var(--blue)"><svg aria-hidden="true"><use href="#i-lock"/></svg></span>
+        <label class="row-text" for="sw-mitm"><strong>HTTPS-Entschlüsselung</strong><small>Nur für die YouTube-Adressen</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-mitm" aria-label="HTTPS-Entschlüsselung"></button>
+      </li>
+      <li class="row">
+        <span class="tile" style="--tile: var(--purple)"><svg aria-hidden="true"><use href="#i-code"/></svg></span>
+        <label class="row-text" for="sw-scripting"><strong>Skripte</strong><small>Löschen die Werbung aus den Antworten</small></label>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="sw-scripting" aria-label="Skripte"></button>
+      </li>
+    </ul>
+    <p class="section-footer">Alle drei müssen an sein. Der Schalter „YouTube ohne Werbung“ auf der Startseite schaltet sie zusammen.</p>
+
+    <h3 class="section-header">Diagnose</h3>
+    <div class="pill-row">
+      <button type="button" class="pill" id="btn-diag">YouTube prüfen</button>
+      <button type="button" class="pill" id="btn-flush">DNS-Cache leeren</button>
+    </div>
+    <pre class="code diag" id="diag-out" hidden></pre>
+    <p class="section-footer">Erst ein paar Sekunden YouTube benutzen, dann prüfen. Zum Weiterschicken lieber „Bericht für Claude“ nehmen, der enthält das hier auch.</p>
+  </div>
+</dialog>
+
+<!-- Ganzer Haushalt (Fritzbox) -->
+<dialog class="sheet" id="dlg-home" aria-labelledby="dlg-home-title">
+  <header class="sheet-header">
+    <span></span>
+    <h2 class="sheet-title" id="dlg-home-title">Ganzer Haushalt</h2>
     <button type="button" class="nav-btn bold" data-close>Fertig</button>
   </header>
   <div class="sheet-body help">
-    <ul class="list">
-      <li class="row"><span class="row-text"><strong>Modul</strong></span><span class="value" id="sp-module">–</span></li>
-      <li class="row"><span class="row-text"><strong>Letztes Video</strong><small id="sp-last">–</small></span></li>
-      <li class="row"><span class="row-text"><strong>Stellen im Video</strong><small id="sp-segs">–</small></span></li>
-      <li class="row"><span class="row-text"><strong>Positions-Meldungen</strong><small id="sp-pos">–</small></span></li>
-      <li class="row">
-        <label class="row-text" for="sp-debug"><strong>Testmodus</strong><small>Mitteilung auch, wenn nichts gefunden wurde</small></label>
-        <input id="sp-debug" type="checkbox" class="toggle">
-      </li>
-    </ul>
-    <div class="pill-row">
-      <button type="button" class="pill" id="btn-sp-test">Testmitteilung senden</button>
-      <button type="button" class="pill" id="btn-sp-refresh">Aktualisieren</button>
-      <button type="button" class="pill" id="btn-sp-update">Skript neu laden</button>
-      <a class="pill" id="sp-module-update" href="surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fr9dfd8pypz-bit%2Fadblock-regeln%2Fmain%2Fmodules%2Fyoutube-sponsor-hinweise.sgmodule">Modul aktualisieren</a>
-    </div>
-    <h3 class="section-header">Sprung-Link</h3>
-    <div class="segmented" role="group" aria-label="Art des Sprung-Links">
-      <button type="button" data-link-style="kurz" aria-label="A: youtu.be">A</button>
-      <button type="button" data-link-style="mix" aria-label="B: youtube.com mit Mix">B</button>
-      <button type="button" data-link-style="kurzmix" aria-label="C: youtu.be mit Mix">C</button>
-      <button type="button" data-link-style="mobil" aria-label="D: m.youtube.com">D</button>
-      <button type="button" data-link-style="appmix" aria-label="E: App-Link mit Mix">E</button>
-    </div>
-    <div class="pill-row"><button type="button" class="pill" id="btn-sp-jumptest">Sprung-Test senden</button></div>
-    <p class="section-footer">Läuft ein Video schon, ignoriert YouTube manche Sprung-Links. So findest du die richtige Art:</p>
+    <p class="section-footer">Die Fritzbox lässt alle Geräte im WLAN über einen gratis Werbefilter laufen: <strong>AdGuard DNS</strong>, ohne Konto und ohne Abo. Das gilt für Fernseher, Laptops, Tablets und Gäste. Dein iPhone behält NextDNS und Surge.</p>
+    <h3 class="section-header">Einrichten (5 Minuten, im WLAN zu Hause)</h3>
     <ol class="list text-list">
-      <li><strong>Sprung-Test senden</strong> tippen. Es kommen sechs Mitteilungen.</li>
-      <li>Zuerst <strong>Start</strong> antippen. Das Testvideo startet bei 0:05.</li>
-      <li>Das Video laufen lassen, die Mitteilungszentrale herunterziehen und nacheinander <strong>A bis E</strong> antippen. A will auf 1:00, B auf 1:30, C auf 2:00, D auf 2:30, E auf 3:00.</li>
-      <li>Hier oben den <strong>ersten Buchstaben</strong> wählen, der wirklich gesprungen ist.</li>
+      <li><a href="http://fritz.box" target="_blank" rel="noopener"><strong>fritz.box öffnen</strong></a> und mit dem Fritzbox-Kennwort anmelden.</li>
+      <li>Links <strong>Internet → Zugangsdaten</strong>, oben den Reiter <strong>DNS-Server</strong> wählen.</li>
+      <li><strong>Andere DNSv4-Server verwenden</strong> wählen und eintragen:
+        <span class="copy-row"><code>94.140.14.14</code><button type="button" class="pill" data-copy="94.140.14.14">Kopieren</button></span>
+        <span class="copy-row"><code>94.140.15.15</code><button type="button" class="pill" data-copy="94.140.15.15">Kopieren</button></span></li>
+      <li><strong>Andere DNSv6-Server verwenden</strong> wählen und eintragen:
+        <span class="copy-row"><code>2a10:50c0::ad1:ff</code><button type="button" class="pill" data-copy="2a10:50c0::ad1:ff">Kopieren</button></span>
+        <span class="copy-row"><code>2a10:50c0::ad2:ff</code><button type="button" class="pill" data-copy="2a10:50c0::ad2:ff">Kopieren</button></span></li>
+      <li>Haken bei <strong>Verschlüsselte Namensauflösung im Internet (DNS over TLS)</strong> und bei <strong>Zertifikatsprüfung … erzwingen</strong>. Unter <strong>Auflösungsnamen der DNS-Server</strong> eintragen:
+        <span class="copy-row"><code>dns.adguard-dns.com</code><button type="button" class="pill" data-copy="dns.adguard-dns.com">Kopieren</button></span>
+        „Fallback auf unverschlüsselte Namensauflösung“ darf an bleiben. Auch dann filtert AdGuard, nur unverschlüsselt.</li>
+      <li>Unten auf <strong>Übernehmen</strong> tippen. Danach bei den anderen Geräten einmal WLAN aus- und wieder einschalten.</li>
+      <li><strong>Testen</strong> auf einem anderen Gerät im WLAN, nicht auf diesem iPhone (das nutzt NextDNS): die Testseite <a href="https://d3ward.github.io/toolz/adblock" target="_blank" rel="noopener">d3ward.github.io/toolz/adblock</a> öffnen. Ein hoher Prozentwert heißt: Der Filter wirkt.</li>
     </ol>
-
-    <div class="advice" id="sp-advice" hidden></div>
-    <h3 class="section-header">Röntgenblick (direkt aus Surge)</h3>
-    <ul class="list">
-      <li class="row"><span class="row-text"><strong>Regel „Video-Start“</strong><small>youtube.sponsor.v7.start</small></span><span class="value" id="sp-r-next">–</span></li>
-      <li class="row"><span class="row-text"><strong>Regel „Wiedergabe“</strong><small>youtube.sponsor.v7.wiedergabe</small></span><span class="value" id="sp-r-pos">–</span></li>
-      <li class="row"><span class="row-text"><strong>Skript lief zuletzt</strong><small id="sp-r-runs">–</small></span></li>
-      <li class="row"><span class="row-text"><strong>Letzte YouTube-Anfragen</strong><small id="sp-r-stats">–</small></span></li>
-      <li class="row"><span class="row-text"><strong>Letzte Mitteilungen</strong><small id="sp-r-log">–</small></span></li>
-      <li class="row"><span class="row-text"><strong>Aufbau der Meldungen</strong><small id="sp-r-pings">–</small></span></li>
-      <li class="row"><span class="row-text"><strong>Surge-Meldungen</strong><small id="sp-r-events">–</small></span></li>
-    </ul>
-    <div class="pill-row"><button type="button" class="pill" id="btn-sp-report">Bericht kopieren</button></div>
-    <p class="section-footer">Am besten direkt nach einem YouTube-Video hier „Aktualisieren“ tippen und mir einen Screenshot oder den kopierten Bericht schicken.</p>
-
-    <h3 class="section-header">So testest du</h3>
-    <ol class="list text-list">
-      <li>Auf <strong>Testmitteilung senden</strong> tippen. Kommt keine Mitteilung: Surge öffnen → Home → Tab <strong>General</strong> → ganz nach unten zum Kärtchen „Surge may use notifications…“ → antippen → <strong>Erlauben</strong>. Danach steht Surge auch unter Einstellungen → Mitteilungen.</li>
-      <li>Einmal auf <strong>Modul aktualisieren</strong> tippen und in Surge bestätigen. Danach zurück in diese App.</li>
-      <li><strong>Testmodus</strong> oben einschalten.</li>
-      <li>YouTube im App-Umschalter ganz wegwischen, neu öffnen und ein Video starten. Im Testmodus kommt beim Öffnen eine Mitteilung, ob Stellen bekannt sind.</li>
-      <li>Das Video ein paar Sekunden laufen lassen. Kommt eine bekannte Stelle, erscheint <strong>während sie läuft</strong> „⏭ Sponsor läuft – noch … s“. Antippen springt dahinter.</li>
-      <li>Hier auf <strong>Aktualisieren</strong> tippen. Unter „Letztes Video“ steht, was passiert ist.</li>
-    </ol>
-    <h3 class="section-header">Was die Meldungen bedeuten</h3>
+    <h3 class="section-header">Gut zu wissen</h3>
     <dl class="list text-list">
-      <div><dt>Noch kein Video geprüft</dt><dd>Surge nutzt vermutlich noch eine alte Fassung des Skripts. Auf <strong>Skript neu laden</strong> tippen, dann YouTube ganz schließen, neu öffnen und ein Video starten. Hilft das nicht: Ist das Modul oben „an“?</dd></div>
-      <div><dt>⏭ Sponsor beginnt jetzt</dt><dd>Die Stelle fängt in diesem Moment an. Antippen springt 1 Sekunde hinter ihr Ende.</dd></div>
-      <div><dt>Letzte Mitteilungen: „verpasst“ oder „beginnt gleich“</dt><dd>Meist ist noch das alte Modul installiert. Auf <strong>Modul aktualisieren</strong> tippen und in Surge bestätigen. Hilft das nicht: Modul in Surge → Modify löschen und noch einmal „Modul aktualisieren“.</dd></div>
-      <div><dt>Für dieses Video ist nichts eingetragen</dt><dd>Alles funktioniert, nur kennt SponsorBlock dieses Video nicht. Ein Video eines großen Kanals ausprobieren.</dd></div>
-      <div><dt>SponsorBlock nicht erreichbar</dt><dd>Eventuell sperrt NextDNS die Adresse sponsor.ajay.app. In den NextDNS-Logs nachsehen und freigeben.</dd></div>
-      <div><dt>Positions-Meldungen: noch keine</dt><dd>Surge liest die Wiedergabe noch nicht mit, meist weil noch das alte Modul installiert ist. Auf <strong>Modul aktualisieren</strong> tippen, in Surge bestätigen, dann YouTube ganz schließen und neu öffnen. Bis dahin kommen die Hinweise wie früher beim Videostart.</dd></div>
-      <div><dt>Keine Video-Kennung gefunden</dt><dd>YouTube hat etwas geändert. Schick mir einen Screenshot.</dd></div>
+      <div><dt>YouTube am Apple TV</dt><dd>Diese Werbung bleibt. Sie kommt von denselben Servern wie die Videos, das kann kein DNS-Filter trennen. Dafür gibt es später ein eigenes Experiment.</dd></div>
+      <div><dt>Geräte mit eigenem DNS</dt><dd>Manche Geräte fragen nicht die Fritzbox, sondern direkt eigene Server (z. B. Chromecast, Handys mit „Privatem DNS“). Sie werden dann nicht gefiltert.</dd></div>
+      <div><dt>Wenn eine Seite oder App nicht mehr geht</dt><dd>Im selben Menü wieder <strong>DNS-Server des Internetanbieters verwenden</strong> wählen und den Haken bei DNS over TLS entfernen. Dann ist alles wie vorher.</dd></div>
     </dl>
   </div>
 </dialog>
@@ -365,12 +326,10 @@
     </ol>
     <h3 class="section-header">Was die Schalter machen</h3>
     <dl class="list text-list">
-      <div><dt>Surge</dt><dd>Startet oder stoppt das lokale VPN. Ohne Surge wird nichts entschlüsselt und nichts umgeschrieben.</dd></div>
-      <div><dt>Werbefilter</dt><dd>Das YouTube-Modul aus deinem Repo. Aus = YouTube läuft normal, mit Werbung.</dd></div>
-      <div><dt>HTTPS-Entschlüsselung</dt><dd>Nötig, damit die Skripte die YouTube-Antworten lesen können. Betrifft nur YouTube.</dd></div>
-      <div><dt>Skripte</dt><dd>Löschen die Werbung aus den Antworten.</dd></div>
-      <div><dt>Sponsor-Hinweise</dt><dd>Kennt SponsorBlock Werbung des Influencers im Video, kommt beim Start eine Mitteilung. Wenn die Stelle läuft: Mitteilungszentrale herunterziehen und antippen, dann springt YouTube dahinter. Funktioniert nur bei Videos, die schon jemand eingetragen hat.</dd></div>
-      <div><dt>Pausieren</dt><dd>Surge bleibt an, filtert aber nichts. Gut zum Testen, ob ein Problem vom Filter kommt.</dd></div>
+      <div><dt>Schutz</dt><dd>Startet oder stoppt Surge, den Filter auf diesem iPhone. Ohne Surge wird nichts entschlüsselt und nichts umgeschrieben.</dd></div>
+      <div><dt>YouTube ohne Werbung</dt><dd>Schaltet Modul, HTTPS-Entschlüsselung und Skripte zusammen. Aus = YouTube läuft normal, mit Werbung. Gut zum Testen, ob ein Problem vom Filter kommt.</dd></div>
+      <div><dt>Technik &amp; Diagnose</dt><dd>Die drei Teile einzeln, falls ich dich darum bitte.</dd></div>
+      <div><dt>Bericht für Claude</dt><dd>Ein Tipp kopiert alles, was ich zur Fehlersuche brauche. Einfach im Chat einfügen.</dd></div>
     </dl>
     <p class="section-footer">Die App speichert ihre Einstellungen nur auf diesem iPhone. Der Schlüssel verlässt das Gerät nie, die Schnittstelle ist nur auf dem iPhone selbst erreichbar (127.0.0.1).</p>
   </div>
