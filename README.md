@@ -45,7 +45,7 @@ Adresse nach dem Einrichten: `https://r9dfd8pypz-bit.github.io/adblock-regeln/ap
 ## Sicherheitsregeln
 
 - Surge entschlüsselt nur YouTube-Adressen: `youtubei.googleapis.com` und `*.googlevideo.com` (Werbefilter). Banking, Apple, Gesundheit und alles andere bleiben unberührt. `tests/pruefen.mjs` prüft das automatisch.
-- Das YouTube-Skript liegt als **geprüfte, feste Kopie** in diesem Repo, siehe [scripts/youtube/HERKUNFT.md](scripts/youtube/HERKUNFT.md). Der Teil des Originals, der Daten an einen fremden Server schickt, ist entfernt, und die Werbe-Erkennung im Feed ist verbessert (dort dokumentiert).
+- Die YouTube-Skripte liegen als **geprüfte, feste Kopien** in diesem Repo, siehe [scripts/youtube/HERKUNFT.md](scripts/youtube/HERKUNFT.md). Der Teil des heutigen Originals, der den Video-Start an einen fremden Server schickt, ist nicht dabei. Den Video-Start filtert stattdessen `youtube.ump.js` aus einer älteren Fassung des Originals lokal auf dem iPhone. Die Werbe-Erkennung im Feed ist verbessert (dort dokumentiert).
 - Das Surge-Zertifikat wird auf deinem iPhone erzeugt und bleibt dort. Exportiere oder teile es nie.
 - Aufhören geht jederzeit: Surge löschen und das Zertifikat entfernen unter Einstellungen → Allgemein → VPN und Geräteverwaltung.
 
@@ -56,6 +56,8 @@ modules/youtube-werbefrei.sgmodule   Surge-Modul gegen YouTube-Werbung (das abon
 modules/youtube-sponsor-hinweise.sgmodule  Stillgelegt (16.11.2026), tut nichts mehr, kann in Surge gelöscht werden
 scripts/youtube/sponsor-hinweise.js  Stillgelegt: lässt jede Anfrage sofort durch
 scripts/youtube/youtube.response.js  YouTube-Skript (Apache-2.0, von Maasea/sgmodule)
+scripts/youtube/youtube.ump.js       Filtert den Video-Start lokal (Apache-2.0, Maasea-Fassung 2ead6ff, unverändert)
+scripts/youtube/youtube.init.js      Eigenes Skript: lässt den Video-Start durch oder weicht auf den Player-Weg aus
 scripts/youtube/HERKUNFT.md          Herkunft und Prüfbericht des Skripts
 app/                                 Werbefrei-Zentrale (Web-App für den Home-Bildschirm)
 anleitung/                           Schritt-für-Schritt-Anleitungen fürs iPhone
@@ -63,6 +65,7 @@ tests/pruefen.mjs                    Automatische Prüfung: node tests/pruefen.m
 tests/app-e2e.cjs                    App-Test gegen eine nachgebaute Surge-Schnittstelle (braucht Playwright)
 tests/sponsor-test.mjs               Prüft, dass das stillgelegte Sponsor-Skript nichts mehr tut
 tests/feed-ads-test.mjs              Test: Werbung im Feed (z. B. Shopping-Karussell) wird entfernt
+tests/init-test.mjs                  Test: Video-Start (initplayback) und Schlüssel aus config/log_event
 ```
 
 ## Etwas ändern lassen

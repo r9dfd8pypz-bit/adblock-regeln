@@ -67,6 +67,21 @@ const unbekannt = [...urlsImSkript].filter((u) => !ERLAUBTE_URLS_IM_SKRIPT.has(u
 ok(unbekannt.length === 0, `Skript enthält keine fremden Server ${unbekannt.join(" ")}`);
 ok(!/workers\.dev/.test(skript), "Skript enthält keinen Cloudflare-Worker");
 
+// UMP-Skript (Video-Start, feste Fassung von Maasea 2ead6ff): geprüfter Hash, keine fremden Server
+const umpPfad = join(ROOT, "scripts/youtube/youtube.ump.js");
+const ump = readFileSync(umpPfad, "utf8");
+const umpHash = createHash("sha256").update(readFileSync(umpPfad)).digest("hex");
+ok(umpHash === herkunft.match(/UMP-Skript SHA-256:[\s|`]*([0-9a-f]{64})/)?.[1], `UMP-Skript ist die geprüfte Fassung (SHA-256 ${umpHash.slice(0, 12)}…)`);
+const umpUrls = [...new Set(ump.match(/https?:\/\/[A-Za-z0-9._~:/?#@!$&+;=%-]+/g) ?? [])];
+ok(umpUrls.every((u) => u === "https://github.com/timostamm/protobuf-ts/blob/v1.0.8/MANUAL.md#bigint-support" || u.startsWith("https://translate.google.com/translate_a/single?")), `UMP-Skript: nur Doku-Link und (abgeschaltete) Übersetzung ${umpUrls.join(" ")}`);
+ok(!/workers\.dev|\beval\(|new Function|\brequire\(/.test(ump), "UMP-Skript: kein Worker, kein eval, kein Nachladen");
+ok(/"lyricLang":"off"/.test(modul) && /"captionLang":"off"/.test(modul.split("youtube.init.antwort")[1] || ""), "UMP-Skript läuft mit abgeschalteter Übersetzung (keine Anfrage an translate.google.com)");
+// Eigenes init-Skript: keine Netzwerkanfrage, keine Mitteilung
+const initSkript = readFileSync(join(ROOT, "scripts/youtube/youtube.init.js"), "utf8");
+ok(!/\$httpClient|\$task|\$notification|https?:\/\/|\beval\(|new Function/.test(initSkript), "youtube.init.js: kein Netzwerk, keine Mitteilung, keine Adressen");
+ok(!/\[Map Local\]/.test(modul) && /youtube\.init\.anfrage/.test(modul) && /youtube\.init\.antwort/.test(modul) && /youtube\.log_event/.test(modul), "Modul: Video-Start über youtube.init.js und youtube.ump.js statt leerer Antwort");
+ok(/get_watch\|log_event\|config\)/.test(modul), "Modul: youtube.response.js liest config/log_event (Schlüssel für den Video-Start)");
+
 // Stillgelegtes Sponsor-Skript: lässt jede Anfrage sofort durch, sonst nichts
 const sponsor = readFileSync(join(ROOT, "scripts/youtube/sponsor-hinweise.js"), "utf8");
 const sponsorCode = sponsor.split("\n").filter((z) => !z.trim().startsWith("//")).join("").trim();

@@ -22,6 +22,7 @@ function ok(cond, text) {
 // ---------- Nachgebaute Surge-Schnittstelle ----------
 const SPONSOR = 'YouTube Sponsor-Hinweise';
 const surge = { enabled: [MODULE, SPONSOR], available: [MODULE, SPONSOR, 'Anderes Modul'], mitm: true, scripting: true, calls: [], notes: [],
+  scripts: ['youtube.response', 'youtube.sponsor'], // altes Modul v1 (ohne youtube.init.anfrage)
   store: new Map([
     ['werbefrei.sponsor.status', JSON.stringify({ t: Date.now(), step: 'keine-daten', text: 'Für dieses Video ist nichts eingetragen' })],
     ['werbefrei.sponsor.segments', JSON.stringify({ id: 'abc', t: Date.now(), segs: [{ start: 73, end: 126.4, category: 'sponsor' }] })],
@@ -58,7 +59,7 @@ function surgeHandler(req, res) {
       return send({ enabled: surge[feature[1]] });
     }
     if (url === '/v1/profiles/reload' || url === '/v1/dns/flush') return send({});
-    if (url === '/v1/scripting') return send({ scripts: [{ name: 'youtube.response', type: 'http-response', path: 'x' }, { name: 'youtube.sponsor', type: 'http-request', path: 'y' }] });
+    if (url === '/v1/scripting') return send({ scripts: surge.scripts.map((name) => ({ name, type: 'http-response', path: 'x' })) });
     if (url === '/v1/events') return send({ events: [{ identifier: '1', date: '', type: 1, allowDismiss: 1, content: 'Script youtube.sponsor evaluated' }] });
     if (url === '/v1/external_resources/update') {
       surge.resourceUpdates = (surge.resourceUpdates || 0) + 1;
@@ -150,6 +151,16 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(surge.calls.filter((c) => c.includes(SPONSOR)).length === callsBefore, 'Stilllegung passiert nur einmal (danach entscheidest du selbst)');
   surge.enabled = surge.enabled.filter((n) => n !== SPONSOR);
 
+  // Altes YouTube-Modul (v1) wird erkannt: Hinweis zum Neuinstallieren
+  await page.waitForFunction(() => /Bitte jetzt antippen/.test(document.getElementById('reinstall-sub').textContent), null, { timeout: 8000 });
+  ok((await page.textContent('#yt-sub')).includes('altes Modul'), 'Altes Modul v1: YouTube-Zeile weist auf Neuinstallieren hin');
+  ok(decodeURIComponent((await page.getAttribute('#reinstall-row', 'href')).split('url=')[1]) === 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/modules/youtube-werbefrei.sgmodule', 'Neu-installieren-Zeile zeigt auf das Modul im Repo');
+  await shot(page, '1b-hell-altes-modul.png');
+  surge.scripts = ['youtube.response', 'youtube.init.anfrage', 'youtube.init.antwort', 'youtube.log_event'];
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.waitForFunction(() => /Nur nötig/.test(document.getElementById('reinstall-sub').textContent), null, { timeout: 8000 });
+  ok(true, 'Nach dem Neuinstallieren (Modul v2) verschwindet der Hinweis');
+
   // Startseite: ein Schalter für YouTube (Modul + Entschlüsselung + Skripte)
   ok(await page.getAttribute('#sw-youtube', 'aria-checked') === 'true', 'Schalter „YouTube ohne Werbung“ steht auf AN');
   ok((await page.textContent('#yt-sub')).startsWith('Aktiv'), 'Zeile erklärt: Aktiv');
@@ -169,7 +180,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   await page.waitForFunction(() => /Ergebnis:/.test(document.getElementById('diag-out').textContent), null, { timeout: 8000 });
   const diag = await page.textContent('#diag-out');
   ok(diag.includes('YouTube-API: 2 · entschlüsselt: 1 · vom Skript verändert: 1'), 'Diagnose zählt YouTube-Anfragen richtig');
-  ok(diag.includes('initplayback: 1 · davon lokal beantwortet: 1'), 'Diagnose erkennt lokal beantwortetes initplayback');
+  ok(diag.includes('Video-Start (initplayback): 1 · davon vom Skript bearbeitet: 1'), 'Diagnose erkennt den vom Skript bearbeiteten Video-Start');
   ok(diag.includes('Ergebnis: Entschlüsselung und Skript laufen.'), 'Diagnose gibt ein klares Ergebnis');
   ok(!diag.includes('geheim') && !/Sponsor|Positions-Meldungen/.test(diag), 'Diagnose ohne Abfrage-Parameter und ohne Sponsor-Teil');
   ok(diag.includes('✂︎ oben feld 777 · 90000 B · Kennzeichnung ×1 · 1 Teil entfernt'), 'Diagnose zeigt das Feed-Protokoll des YouTube-Skripts');
@@ -214,6 +225,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
       e: [{ at: 9, i: 7, n: 20, skel: '{153515154{2{183314536{1:eml:mystery_promo.eml}}}}', sibs: ['6: video_lockup.eml·5KB', '▶ 7: mystery_promo.eml·7KB·WORT'] }] }] }));
   surge.store.set('werbefrei.feed.runs', JSON.stringify({ v: 'werbefrei-7', t: Date.now(), eps: { browse: { n: 3, c: 3, t: Date.now(), ms: 80, len: 830000, ch: true } } }));
   surge.store.set('werbefrei.feed.errors', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-7', w: 'WfTop', e: 'Testfehler' }] }));
+  surge.store.set('werbefrei.init.stats', JSON.stringify({ durchgelassen: 3, ausgewichen: 1, schluesselHolen: 1, t: Date.now(), last: 'durchgelassen' }));
   await page.click('#btn-rep-copy');
   await page.waitForFunction(() => /^Kopiert/.test(document.getElementById('rep-note').textContent), null, { timeout: 12000 });
   const adr = await page.textContent('#rep-out');
@@ -224,7 +236,8 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(adr.includes('Fundstelle 1 · browse') && adr.includes('NOCH DA') && adr.includes('Pfad: 9>58173949') && adr.includes('▶ 7: mystery_promo.eml'), 'Bericht enthält die Spurensuche');
   ok(adr.includes('Skript-Läufe (Stand werbefrei-7): browse 3×') && adr.includes('WfTop: Testfehler'), 'Bericht enthält Skript-Läufe und Fehler');
   ok(adr.includes('browse: 1× · verändert 1') && adr.includes('nicht entschlüsselt: 1×') && !adr.includes('geheim') && !adr.includes(KEY), 'Bericht ohne Abfrage-Parameter und ohne Schlüssel');
-  ok(adr.includes('Feed-Protokoll (neueste zuerst):') && adr.includes('Letzte Aktionen:') && adr.includes('App: v28'), 'Bericht enthält Feed-Protokoll, letzte Aktionen und App-Version');
+  ok(adr.includes('Feed-Protokoll (neueste zuerst):') && adr.includes('Letzte Aktionen:') && adr.includes('App: v29'), 'Bericht enthält Feed-Protokoll, letzte Aktionen und App-Version');
+  ok(adr.includes('Modul-Fassung: v2') && adr.includes('Video-Start-Skript: durchgelassen 3 · ausgewichen 1 · Schlüssel geholt 1'), 'Bericht zeigt Modul-Fassung und Video-Start-Zähler');
   await page.click('#btn-ar-stop');
   await page.waitForFunction(() => /Beendet: „Wingo“/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
   ok(JSON.parse(surge.store.get('werbefrei.feed.search')).hits.length === 1, 'Beenden stoppt die Suche und behält die Fundstellen');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="werbefrei-version" content="v28 · 16.11.2026">
+<meta name="werbefrei-version" content="v29 · 25.11.2026">
 <title>Werbefrei</title>
 <meta name="description" content="Schalter für den Werbeblocker auf dem iPhone: Surge, YouTube-Filter und NextDNS.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -118,6 +118,9 @@
       <li><button type="button" class="row row-link" id="btn-reload">
         <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span>
         <span class="row-text"><strong>Regeln &amp; Skripte aktualisieren</strong><small>Holt die neueste Fassung, danach YouTube neu öffnen</small></span></button></li>
+      <li><a class="row row-link" id="reinstall-row" href="surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fr9dfd8pypz-bit%2Fadblock-regeln%2Fmain%2Fmodules%2Fyoutube-werbefrei.sgmodule">
+        <span class="tile" style="--tile: var(--red)"><svg aria-hidden="true"><use href="#i-play"/></svg></span>
+        <span class="row-text"><strong>YouTube-Modul neu installieren</strong><small id="reinstall-sub">Nur nötig, wenn ich dich darum bitte</small></span><svg class="chev" aria-hidden="true"><use href="#i-external"/></svg></a></li>
       <li><button type="button" class="row row-link" data-action="tech">
         <span class="tile" style="--tile: var(--gray)"><svg aria-hidden="true"><use href="#i-code"/></svg></span>
         <span class="row-text"><strong>Technik &amp; Diagnose</strong><small>Einzelne Schalter, YouTube prüfen, DNS-Cache</small></span><svg class="chev" aria-hidden="true"><use href="#i-chevron"/></svg></button></li>

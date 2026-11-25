@@ -17,6 +17,9 @@
   // Die Sponsor-Hinweise wurden entfernt (16.11.2026). Ist das Modul noch eingeschaltet, schaltet die
   // App es einmal aus und räumt seine Daten in Surge weg (siehe retireSponsor).
   const SPONSOR_MODULE = 'YouTube Sponsor-Hinweise';
+  // Ab Modul v2 (25.11.2026) filtert youtube.init.js/youtube.ump.js den Video-Start. Daran erkennt die App die Fassung.
+  const MODULE_V2_RULE = 'youtube.init.anfrage';
+  const INIT_STATS_KEY = 'werbefrei.init.stats';
   const SPONSOR_KEYS = ['status', 'debug', 'segments', 'pos', 'runs', 'pings', 'link', 'log', 'notified', 'segcache'].map((k) => `werbefrei.sponsor.${k}`);
   const YT_SCRIPT_URL = 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/youtube.response.js';
   // Welcher Stand des YouTube-Skripts liegt online? (z. B. „werbefrei-5“, null wenn nicht abrufbar)
@@ -98,6 +101,7 @@
       recentRequests: () => call('/requests/recent'),
       // Führt ein kleines Skript in Surge aus (liest/schreibt die Protokolle des YouTube-Skripts).
       evaluate: (code) => call('/scripting/evaluate', 'POST', { script_text: code, mock_type: 'cron', timeout: 5 }, 8000),
+      scriptingList: () => call('/scripting'),
       // Lädt Module und Skripte neu aus dem Internet (Surge iOS 5.23+).
       updateResources: () => call('/external_resources/update', 'POST', { key: 'all' }, 60000),
     };
@@ -134,6 +138,7 @@
         ] };
       },
       async updateResources() { await wait(); return { all: 'success' }; },
+      async scriptingList() { await wait(); return { scripts: [{ name: 'youtube.response' }, { name: MODULE_V2_RULE }, { name: 'youtube.init.antwort' }] }; },
       async evaluate() {
         await wait();
         return { result: {
@@ -169,6 +174,7 @@
       try {
         state.status = await backend.status();
         state.reach = 'ok';
+        state.scripts = await backend.scriptingList().then((r) => (Array.isArray(r && r.scripts) ? r.scripts.map((x) => x.name) : null)).catch(() => null);
         retireSponsor(state.status);
         if (!settings.demo) storage.set('everConnected', true);
       } catch (e) {
@@ -224,15 +230,22 @@
     setSwitch($('sw-scripting'), !!(st && st.scripting), !running || busy('scripting') || busy('all'), busy('scripting'));
     for (const id of ['btn-reload', 'btn-flush', 'btn-diag']) $(id).disabled = !running || busy('all');
 
+    const oldModule = moduleOn && Array.isArray(state.scripts) && state.scripts.includes('youtube.response') && !state.scripts.includes(MODULE_V2_RULE);
+    $('reinstall-sub').textContent = oldModule
+      ? 'Bitte jetzt antippen: neue Fassung (Modul v2) ist da'
+      : 'Nur nötig, wenn ich dich darum bitte';
+    $('reinstall-row').dataset.level = oldModule ? 'warn' : '';
     $('yt-sub').textContent = !running
       ? 'Erst den Schutz einschalten'
       : !moduleKnown
         ? `Modul „${settings.module}“ fehlt in Surge – unter Mehr → Einrichtung installieren`
-        : ytAll
-          ? 'Aktiv: Werbung wird aus der YouTube-App entfernt'
-          : ytOff.length === 3
-            ? 'Pausiert: YouTube zeigt Werbung'
-            : `Teilweise aus (${ytOff.join(', ')}) – antippen schaltet alles ein`;
+        : ytAll && oldModule
+          ? 'Aktiv, aber altes Modul: unten bei Wartung neu installieren'
+          : ytAll
+            ? 'Aktiv: Werbung wird aus der YouTube-App entfernt'
+            : ytOff.length === 3
+              ? 'Pausiert: YouTube zeigt Werbung'
+              : `Teilweise aus (${ytOff.join(', ')}) – antippen schaltet alles ein`;
     $('module-sub').textContent = st && !moduleKnown
       ? `Modul „${settings.module}“ ist in Surge nicht installiert`
       : `„${settings.module}“ in Surge`;
@@ -519,7 +532,7 @@
     const scripted = decrypted.filter((r) => r.modified || (r.notes || []).some((n) => /script|youtube\.response/i.test(n)));
     const video = reqs.filter((r) => /googlevideo\.com/.test(r.URL || ''));
     const init = video.filter((r) => /\/initplayback/.test(r.URL || ''));
-    const initLocal = init.filter((r) => r.modified || (r.notes || []).some((n) => /map local|mock/i.test(n)));
+    const initLocal = init.filter((r) => r.modified || (r.notes || []).some((n) => /map local|mock|script/i.test(n)));
     const adBreak = yt.filter((r) => /\/youtubei\/v1\/player\/ad_break/.test(r.URL || ''));
     const notes = [];
     for (const r of [...yt, ...video]) {
@@ -558,7 +571,7 @@
       `MitM: ${yn(a.mitm)} · Skripte: ${yn(a.scripting)}`,
       `Letzte Anfragen gesamt: ${a.total}`,
       `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted}`,
-      `Video-Server: ${a.video} · initplayback: ${a.init} · davon lokal beantwortet: ${a.initLocal}`,
+      `Video-Server: ${a.video} · Video-Start (initplayback): ${a.init} · davon vom Skript bearbeitet: ${a.initLocal}`,
       `Zwischen-Werbung (player/ad_break): ${a.adBreak} Anfragen`,
       a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : 'Hinweise von Surge: keine',
       a.samples.length ? `Beispiele:\n${a.samples.map((s) => `  - ${s}`).join('\n')}` : '',
@@ -611,10 +624,10 @@
 
   async function readAdData() {
     const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
-    const res = await backend.evaluate(`$done({ search: ${read(FEED_SEARCH_KEY)}, runs: ${read(FEED_RUNS_KEY)}, errors: ${read(FEED_ERRORS_KEY)}, feed: ${read(FEED_DIAG_KEY)} });`);
+    const res = await backend.evaluate(`$done({ search: ${read(FEED_SEARCH_KEY)}, runs: ${read(FEED_RUNS_KEY)}, errors: ${read(FEED_ERRORS_KEY)}, feed: ${read(FEED_DIAG_KEY)}, init: ${read(INIT_STATS_KEY)} });`);
     const r = (res && res.result) || {};
     const feed = parseJson(r.feed);
-    return { search: parseJson(r.search), runs: parseJson(r.runs), errors: parseJson(r.errors), feed: feed && Array.isArray(feed.list) ? feed.list : [] };
+    return { search: parseJson(r.search), runs: parseJson(r.runs), errors: parseJson(r.errors), init: parseJson(r.init), feed: feed && Array.isArray(feed.list) ? feed.list : [] };
   }
   async function writeSearch(obj) {
     await backend.evaluate(`$persistentStore.write(${JSON.stringify(JSON.stringify(obj))}, ${JSON.stringify(FEED_SEARCH_KEY)}); $done({});`);
@@ -650,6 +663,10 @@
       if (search && search.word) await writeSearch({ ...search, until: Date.now() - 1 });
       await refreshSearchStatus();
     } catch (e) { $('ar-status').textContent = `Nicht beendet: ${errorText(e)}`; }
+  }
+  function initReport(s) {
+    if (!s) return 'Video-Start-Skript: noch nicht gelaufen';
+    return `Video-Start-Skript: durchgelassen ${s.durchgelassen || 0} · ausgewichen ${s.ausgewichen || 0} · Schlüssel geholt ${s.schluesselHolen || 0} (zuletzt ${ago(s.t)}: ${s.last || '?'})`;
   }
   function runsReport(runs) {
     if (!runs || !runs.eps) return 'Skript-Läufe: noch keine – Skript aktualisieren und YouTube öffnen';
@@ -718,7 +735,9 @@
       st ? `Modul „${settings.module}“: ${st.available.includes(settings.module) ? yn(st.enabled.includes(settings.module)) : 'nicht installiert ❗'} · MitM: ${yn(st.mitm)} · Skripte: ${yn(st.scripting)}` : '',
       `NextDNS (dieses iPhone): ${$('dns-title').textContent}`,
       a ? `Ergebnis: ${verdict(a)}` : '',
-      a ? `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted} · Video-Server: ${a.video} · initplayback lokal: ${a.initLocal}/${a.init} · Zwischen-Werbung (ad_break): ${a.adBreak}` : '',
+      a ? `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted} · Video-Server: ${a.video} · Video-Start bearbeitet: ${a.initLocal}/${a.init} · Zwischen-Werbung (ad_break): ${a.adBreak}` : '',
+      `Modul-Fassung: ${!Array.isArray(state.scripts) ? 'unbekannt' : state.scripts.includes(MODULE_V2_RULE) ? 'v2 (Video-Start lokal gefiltert) ✅' : 'v1 (alt) ❗ Wartung → YouTube-Modul neu installieren'}`,
+      initReport(data.init),
       a && a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : '',
       `YouTube-Skript: geladen ${loaded || 'unbekannt'} · online ${online || 'unbekannt'}${loaded && online && loaded !== online ? ' ❗ „Regeln & Skripte aktualisieren“ tippen' : ''}`,
       runsReport(data.runs),

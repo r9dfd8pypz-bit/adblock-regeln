@@ -78,10 +78,47 @@ Geändert: Bei `get_watch` laufen für den Next-Teil jetzt dieselben Schritte wi
 
 `node tests/feed-ads-test.mjs` prüft das alles, auch Startseite, Nachladen beim Scrollen, unbekannten Aufbau mit und ohne Hülle, `get_watch` und dass die Antwort gültiges protobuf bleibt: Mit dem Original schlagen 32 Prüfungen fehl, mit der geänderten Fassung keine.
 
+## Video-Start: `youtube.ump.js` und `youtube.init.js` (25.11.2026)
+
+Anlass: Neue YouTube-Apps (21.46.3) zeigen beim Video bzw. beim automatischen Weiterspringen „Ein Fehler ist aufgetreten – Tippe, um es erneut zu versuchen“. Titel, Kommentare und Empfehlungen laden trotzdem. Gemeldet auch bei Maasea (Issue #111, 25.11.2026). Dort hilft das Zurückgehen auf Fassung `2ead6ff`.
+
+Bis dahin hat unser Modul die Video-Startanfrage `initplayback` **immer** leer beantwortet. Die App ist dann auf `/youtubei/v1/player` ausgewichen, und das klappt mit den neuen App-Fassungen nicht mehr zuverlässig.
+
+Jetzt läuft es wie in Maasea `2ead6ff`, aber ohne fremden Server:
+- **`youtube.response.js`** liest zusätzlich `config` und `log_event` und merkt sich den Onesie-Schlüssel (`YouTubeConfig`). Diese Funktion steckt schon im Original 65075cd und war bei uns bisher nur nicht eingeschaltet. Am Skript selbst ändert sich nichts.
+- **`youtube.init.js`** (eigenes Skript, ~120 Zeilen, lesbar):
+  - `initplayback` geht unverändert durch, wenn der Schlüssel passt. Sonst kommt eine leere Antwort (Player-Weg) und der Schlüssel wird neu geholt.
+  - Bei `log_event` ohne Schlüssel entfernt es die Köpfe `x-youtube-hot-hash-data` und `content-encoding` (wie Maasea 2ead6ff und Fix 6cf1621).
+  - Kein Netzwerk, keine Mitteilung. Nur ein Zähler `werbefrei.init.stats` für den Bericht.
+- **`youtube.ump.js`** (unveränderte Kopie, siehe unten):
+  - Entschlüsselt den Player-Teil der `initplayback`-Antwort (UMP/Onesie) mit dem gespeicherten Schlüssel, entfernt die Werbung wie bei `/player` und verschlüsselt wieder.
+  - Antworten ohne Player-Teil gehen unverändert durch.
+  - Klappt das Entschlüsseln nicht, antwortet es leer (Player-Weg) und löscht den Schlüssel.
+
+| | |
+|---|---|
+| Quelle | https://github.com/Maasea/sgmodule/blob/2ead6ff5950d7722c4aa6658998904ef78eee531/Script/Youtube/youtube.ump.js |
+| Commit | `2ead6ff5950d7722c4aa6658998904ef78eee531` vom 11.07.2026 („fix: pip error #102 #101 #98 #83“), danach beim Autor durch einen Cloudflare-Worker ersetzt |
+| UMP-Skript SHA-256: | `0694f1ec6ae1cd3406b8032777dbefaa1dc7a30bbb51f5c9de42cda4d5b246d4` (unverändert vom Autor) |
+| Geprüft am | 25.11.2026 |
+
+Was in `youtube.ump.js` geprüft wurde:
+- **URLs:** Nur der Doku-Link der protobuf-Bibliothek und `translate.google.com` für die Übersetzung von Untertiteln und Liedtexten. Die Übersetzung ist im Modul abgeschaltet (`"captionLang":"off","lyricLang":"off"`, auch die Standardwerte sind „off“). Darum fragt das Skript nie dort an.
+- **Kein Nachladen:** kein Worker, kein `eval`, kein `new Function`, kein `require`.
+- **Verschlüsselung:** stammt aus @noble/ciphers bzw. @noble/hashes (MIT, im Skript gebündelt).
+- **Speicher:** nur lokal in Surge, der Schlüssel `YouTubeConfig` und der Werbe-Zwischenspeicher `YouTubeAdvertiseInfo`. Es nutzt die Versionskennung des Originals, darum ignoriert unser Hauptskript diese Einträge, und umgekehrt.
+
+`node tests/init-test.mjs` prüft:
+- Durchlassen, Ausweichen, Schlüssel neu holen und Kopfzeilen bei `log_event`.
+- Den Weg des Schlüssels von `youtube.response.js` (config) zu `youtube.init.js`.
+- Das sichere Verhalten von `youtube.ump.js`: leere Antwort statt Absturz, kein Netzwerk.
+
+`node tests/pruefen.mjs` prüft den Hash von `youtube.ump.js`.
+
 ## Warum eine Kopie statt eines Links zum Original?
 
 - **Kein ungeprüfter Code:** Das Original-Modul lädt das Skript immer in der neuesten Fassung. Jede Änderung beim Autor würde sofort auf deinem iPhone laufen und könnte deinen entschlüsselten YouTube-Verkehr sehen. Diese Kopie ändert sich nur, wenn wir sie bewusst aktualisieren und neu prüfen.
-- **Kein fremder Server:** Das Original-Modul enthält noch ein zweites Skript, `youtube.request.js`. Es leitet die Video-Startanfrage (`initplayback`) an `https://init-stream.maasea.workers.dev/` um, einen Server des Skript-Autors. Dabei gehen die Video-Adresse und ein Schlüssel aus der YouTube-Sitzung an diesen Server. **Dieses Skript übernehmen wir nicht.** Unser Modul beantwortet `initplayback` stattdessen lokal leer. Die App fällt dann auf die normale Player-Anfrage zurück. Das ist derselbe Rückfallweg, den das Original selbst nutzt, wenn es noch keinen Schlüssel kennt.
+- **Kein fremder Server:** Das Original-Modul enthält heute noch ein zweites Skript, `youtube.request.js`. Es leitet die Video-Startanfrage (`initplayback`) an `https://init-stream.maasea.workers.dev/` um, einen Server des Skript-Autors. Dabei gehen die Video-Adresse und ein Schlüssel aus der YouTube-Sitzung an diesen Server. **Dieses Skript übernehmen wir nicht.** Bis 24.11.2026 hat unser Modul `initplayback` lokal leer beantwortet. Seit dem 25.11.2026 filtert es die Antwort lokal mit `youtube.ump.js`, siehe oben.
 
 ## Was geprüft wurde
 

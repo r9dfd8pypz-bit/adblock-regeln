@@ -572,3 +572,6 @@ dl.text-list > div { padding-left: 16px; }
 /* Werte zum Kopieren in Anleitungen */
 .copy-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
 .copy-row code { font-size: 15px; -webkit-user-select: all; user-select: all; overflow-wrap: anywhere; }
+
+/* Hinweis in einer Zeile (z. B. altes Modul) */
+.row[data-level="warn"] small { color: var(--orange); font-weight: 600; }
