@@ -20,6 +20,7 @@
   // Ab Modul v2 (25.11.2026) filtert youtube.init.js/youtube.ump.js den Video-Start. Daran erkennt die App die Fassung.
   const MODULE_V2_RULE = 'youtube.init.anfrage';
   const INIT_STATS_KEY = 'werbefrei.init.stats';
+  const UMP_STATS_KEY = 'werbefrei.ump.stats';
   const SPONSOR_KEYS = ['status', 'debug', 'segments', 'pos', 'runs', 'pings', 'link', 'log', 'notified', 'segcache'].map((k) => `werbefrei.sponsor.${k}`);
   const YT_SCRIPT_URL = 'https://raw.githubusercontent.com/r9dfd8pypz-bit/adblock-regeln/main/scripts/youtube/youtube.response.js';
   // Welcher Stand des YouTube-Skripts liegt online? (z. B. „werbefrei-5“, null wenn nicht abrufbar)
@@ -624,10 +625,10 @@
 
   async function readAdData() {
     const read = (k) => `$persistentStore.read(${JSON.stringify(k)})`;
-    const res = await backend.evaluate(`$done({ search: ${read(FEED_SEARCH_KEY)}, runs: ${read(FEED_RUNS_KEY)}, errors: ${read(FEED_ERRORS_KEY)}, feed: ${read(FEED_DIAG_KEY)}, init: ${read(INIT_STATS_KEY)} });`);
+    const res = await backend.evaluate(`$done({ search: ${read(FEED_SEARCH_KEY)}, runs: ${read(FEED_RUNS_KEY)}, errors: ${read(FEED_ERRORS_KEY)}, feed: ${read(FEED_DIAG_KEY)}, init: ${read(INIT_STATS_KEY)}, ump: ${read(UMP_STATS_KEY)} });`);
     const r = (res && res.result) || {};
     const feed = parseJson(r.feed);
-    return { search: parseJson(r.search), runs: parseJson(r.runs), errors: parseJson(r.errors), init: parseJson(r.init), feed: feed && Array.isArray(feed.list) ? feed.list : [] };
+    return { search: parseJson(r.search), runs: parseJson(r.runs), errors: parseJson(r.errors), init: parseJson(r.init), ump: parseJson(r.ump), feed: feed && Array.isArray(feed.list) ? feed.list : [] };
   }
   async function writeSearch(obj) {
     await backend.evaluate(`$persistentStore.write(${JSON.stringify(JSON.stringify(obj))}, ${JSON.stringify(FEED_SEARCH_KEY)}); $done({});`);
@@ -668,6 +669,16 @@
     if (!s) return 'Video-Start-Skript: noch nicht gelaufen';
     return `Video-Start-Skript: durchgelassen ${s.durchgelassen || 0} · ausgewichen ${s.ausgewichen || 0} · Schlüssel geholt ${s.schluesselHolen || 0} (zuletzt ${ago(s.t)}: ${s.last || '?'})`;
   }
+  // Zähler des Video-Start-Filters (youtube.ump.js): Teil-Typen und Onesie-Köpfe, keine Inhalte
+  const fmtMap = (m) => (m && Object.keys(m).length ? Object.entries(m).map(([k, v]) => `${k}×${v}`).join(',') : '–');
+  function umpReport(s) {
+    if (!s) return 'Video-Start-Filter: noch nicht gelaufen';
+    const lines = [`Video-Start-Filter: bearbeitet ${s.bearbeitet || 0} · ohne Player-Teil ${s.ohnePlayer || 0} · ohne Onesie ${s.ohneOnesie || 0} · Fehler ${s.fehler || 0}`];
+    for (const e of (Array.isArray(s.recent) ? s.recent : []).slice(0, 5)) {
+      lines.push(`  ${hhmmss(e.t)} ${e.res} · ${kb(e.len)} · Teile ${fmtMap(e.types)} · Köpfe ${fmtMap(e.heads)} · gepackt ${e.comp ?? '?'}${e.e ? ` · ${e.e}` : ''}`);
+    }
+    return lines.join('\n');
+  }
   function runsReport(runs) {
     if (!runs || !runs.eps) return 'Skript-Läufe: noch keine – Skript aktualisieren und YouTube öffnen';
     const parts = Object.entries(runs.eps).sort((a, b) => b[1].t - a[1].t)
@@ -676,7 +687,7 @@
   }
   function errorsReport(errs) {
     const list = errs && Array.isArray(errs.list) ? errs.list : [];
-    return list.length ? `Fehler im Skript:\n${list.map((x) => `  ${hhmmss(x.t)} ${x.v || ''} ${x.w}: ${x.e}`).join('\n')}` : 'Fehler im Skript: keine';
+    return list.length ? `Fehler im Skript:\n${list.map((x) => `  ${hhmmss(x.t)} ${x.v || ''} ${x.w}${x.ep ? ` (${x.ep})` : ''}: ${x.e}${x.at ? ` · ${x.at}` : ''}`).join('\n')}` : 'Fehler im Skript: keine';
   }
   function endpointSummary(recent) {
     const reqs = Array.isArray(recent && recent.requests) ? recent.requests : [];
@@ -696,6 +707,14 @@
     const lines = [...by].sort((a, b) => b[1].n - a[1].n).map(([ep, o]) =>
       `  ${ep}: ${o.n}× · verändert ${o.mod}${o.fail ? ` · FEHLER ${o.fail}` : ''}${COVERED_ENDPOINTS.test(ep) ? '' : ' · nicht im Filter'}${o.notes.size ? ` · ${[...o.notes].join(' | ')}` : ''}`);
     if (tunnel) lines.push(`  nicht entschlüsselt: ${tunnel}×`);
+    // Video-Start bei googlevideo.com: nur Anzahl, Merkmale der Adresse (ack/oad) und Größe, keine Werte
+    const ip = reqs.filter((r) => /googlevideo\.com\/initplayback/.test(r.URL || ''));
+    if (ip.length) {
+      const notes = new Set();
+      for (const r of ip) for (const n of r.notes || []) if (/script|error|fail|timeout|skip|size/i.test(n) && notes.size < 3) notes.add(String(n).replace(/^[\d:.]+\s*/, '').slice(0, 100));
+      const has = (k) => ip.filter((r) => new RegExp(`[?&]${k}(=|&|$)`).test(r.URL)).length;
+      lines.push(`  initplayback: ${ip.length}× · verändert ${ip.filter((r) => r.modified).length} · mit ack ${has('ack')} · mit oad ${has('oad')} · Größe ${ip.slice(0, 6).map((r) => kb(r.inBytes || r.inMaxSpeed || 0)).join('/')}${notes.size ? ` · ${[...notes].join(' | ')}` : ''}`);
+    }
     return lines;
   }
   function searchReport(sr) {
@@ -738,6 +757,7 @@
       a ? `YouTube-API: ${a.yt} · entschlüsselt: ${a.decrypted} · vom Skript verändert: ${a.scripted} · Video-Server: ${a.video} · Video-Start bearbeitet: ${a.initLocal}/${a.init} · Zwischen-Werbung (ad_break): ${a.adBreak}` : '',
       `Modul-Fassung: ${!Array.isArray(state.scripts) ? 'unbekannt' : state.scripts.includes(MODULE_V2_RULE) ? 'v2 (Video-Start lokal gefiltert) ✅' : 'v1 (alt) ❗ Wartung → YouTube-Modul neu installieren'}`,
       initReport(data.init),
+      umpReport(data.ump),
       a && a.notes.length ? `Hinweise von Surge:\n${a.notes.map((n) => `  - ${n}`).join('\n')}` : '',
       `YouTube-Skript: geladen ${loaded || 'unbekannt'} · online ${online || 'unbekannt'}${loaded && online && loaded !== online ? ' ❗ „Regeln & Skripte aktualisieren“ tippen' : ''}`,
       runsReport(data.runs),

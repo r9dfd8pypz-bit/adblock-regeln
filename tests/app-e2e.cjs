@@ -226,6 +226,7 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   surge.store.set('werbefrei.feed.runs', JSON.stringify({ v: 'werbefrei-7', t: Date.now(), eps: { browse: { n: 3, c: 3, t: Date.now(), ms: 80, len: 830000, ch: true } } }));
   surge.store.set('werbefrei.feed.errors', JSON.stringify({ list: [{ t: Date.now(), v: 'werbefrei-7', w: 'WfTop', e: 'Testfehler' }] }));
   surge.store.set('werbefrei.init.stats', JSON.stringify({ durchgelassen: 3, ausgewichen: 1, schluesselHolen: 1, t: Date.now(), last: 'durchgelassen' }));
+  surge.store.set('werbefrei.ump.stats', JSON.stringify({ bearbeitet: 2, ohnePlayer: 1, t: Date.now(), recent: [{ t: Date.now(), res: 'ohnePlayer', len: 900000, parts: 5, types: { 10: 1, 11: 1, 20: 3 }, heads: { 26: 1 }, done: 0, comp: 1, e: 'Onesie ohne bearbeitbaren Player-Teil' }] }));
   await page.click('#btn-rep-copy');
   await page.waitForFunction(() => /^Kopiert/.test(document.getElementById('rep-note').textContent), null, { timeout: 12000 });
   const adr = await page.textContent('#rep-out');
@@ -236,8 +237,10 @@ const listen = (server, port, host) => new Promise((r) => server.listen(port, ho
   ok(adr.includes('Fundstelle 1 · browse') && adr.includes('NOCH DA') && adr.includes('Pfad: 9>58173949') && adr.includes('▶ 7: mystery_promo.eml'), 'Bericht enthält die Spurensuche');
   ok(adr.includes('Skript-Läufe (Stand werbefrei-7): browse 3×') && adr.includes('WfTop: Testfehler'), 'Bericht enthält Skript-Läufe und Fehler');
   ok(adr.includes('browse: 1× · verändert 1') && adr.includes('nicht entschlüsselt: 1×') && !adr.includes('geheim') && !adr.includes(KEY), 'Bericht ohne Abfrage-Parameter und ohne Schlüssel');
-  ok(adr.includes('Feed-Protokoll (neueste zuerst):') && adr.includes('Letzte Aktionen:') && adr.includes('App: v29'), 'Bericht enthält Feed-Protokoll, letzte Aktionen und App-Version');
+  ok(adr.includes('Feed-Protokoll (neueste zuerst):') && adr.includes('Letzte Aktionen:') && adr.includes('App: v30'), 'Bericht enthält Feed-Protokoll, letzte Aktionen und App-Version');
   ok(adr.includes('Modul-Fassung: v2') && adr.includes('Video-Start-Skript: durchgelassen 3 · ausgewichen 1 · Schlüssel geholt 1'), 'Bericht zeigt Modul-Fassung und Video-Start-Zähler');
+  ok(adr.includes('Video-Start-Filter: bearbeitet 2 · ohne Player-Teil 1') && adr.includes('Teile 10×1,11×1,20×3 · Köpfe 26×1 · gepackt 1 · Onesie ohne bearbeitbaren Player-Teil'), 'Bericht zeigt die Zähler des Video-Start-Filters');
+  ok(adr.includes('initplayback: 1× · verändert 1 · mit ack 1 · mit oad 0'), 'Bericht fasst die Video-Starts bei googlevideo.com zusammen');
   await page.click('#btn-ar-stop');
   await page.waitForFunction(() => /Beendet: „Wingo“/.test(document.getElementById('ar-status').textContent), null, { timeout: 8000 });
   ok(JSON.parse(surge.store.get('werbefrei.feed.search')).hits.length === 1, 'Beenden stoppt die Suche und behält die Fundstellen');

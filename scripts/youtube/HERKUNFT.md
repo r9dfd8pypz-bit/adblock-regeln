@@ -6,7 +6,7 @@
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/65075cdb388fc5e3094afd7e7314c67b243f3525/Script/Youtube/youtube.response.js |
 | Commit | `65075cdb388fc5e3094afd7e7314c67b243f3525` vom 19.07.2026 („#100 fix ad judgment“) |
-| SHA-256: | `29d139f6f715e592e3c55ad70a6a363b1660dfbf35c40c26c36eba8e00f6265f` (geänderte Fassung, Stand „werbefrei-7“) |
+| SHA-256: | `e4c210098b45bd95a985e9bef8ec5b1c0e842b943fe0746e6d7e9307fb87e61f` (geänderte Fassung, Stand „werbefrei-8“) |
 | Original-Prüfsumme | `f98483d5f5017514f82502253c0db5ce2d4ffb7839887aa2cadc22666f5a7f12` (unverändert vom Autor) |
 | Geprüft am | 02.11.2026 |
 
@@ -90,7 +90,7 @@ Jetzt läuft es wie in Maasea `2ead6ff`, aber ohne fremden Server:
   - `initplayback` geht unverändert durch, wenn der Schlüssel passt. Sonst kommt eine leere Antwort (Player-Weg) und der Schlüssel wird neu geholt.
   - Bei `log_event` ohne Schlüssel entfernt es die Köpfe `x-youtube-hot-hash-data` und `content-encoding` (wie Maasea 2ead6ff und Fix 6cf1621).
   - Kein Netzwerk, keine Mitteilung. Nur ein Zähler `werbefrei.init.stats` für den Bericht.
-- **`youtube.ump.js`** (unveränderte Kopie, siehe unten):
+- **`youtube.ump.js`** (Kopie aus Maasea 2ead6ff, seit 27.11.2026 leicht geändert, siehe „Nachtrag UMP“):
   - Entschlüsselt den Player-Teil der `initplayback`-Antwort (UMP/Onesie) mit dem gespeicherten Schlüssel, entfernt die Werbung wie bei `/player` und verschlüsselt wieder.
   - Antworten ohne Player-Teil gehen unverändert durch.
   - Klappt das Entschlüsseln nicht, antwortet es leer (Player-Weg) und löscht den Schlüssel.
@@ -99,7 +99,8 @@ Jetzt läuft es wie in Maasea `2ead6ff`, aber ohne fremden Server:
 |---|---|
 | Quelle | https://github.com/Maasea/sgmodule/blob/2ead6ff5950d7722c4aa6658998904ef78eee531/Script/Youtube/youtube.ump.js |
 | Commit | `2ead6ff5950d7722c4aa6658998904ef78eee531` vom 11.07.2026 („fix: pip error #102 #101 #98 #83“), danach beim Autor durch einen Cloudflare-Worker ersetzt |
-| UMP-Skript SHA-256: | `0694f1ec6ae1cd3406b8032777dbefaa1dc7a30bbb51f5c9de42cda4d5b246d4` (unverändert vom Autor) |
+| UMP-Skript SHA-256: | `9753ed6f4c204f36c0bdc4545c72280e49a0d4a77c1cccf5df8b3a979661a1cb` (geänderte Fassung, siehe unten) |
+| UMP-Original-Prüfsumme | `0694f1ec6ae1cd3406b8032777dbefaa1dc7a30bbb51f5c9de42cda4d5b246d4` (unverändert vom Autor) |
 | Geprüft am | 25.11.2026 |
 
 Was in `youtube.ump.js` geprüft wurde:
@@ -114,6 +115,35 @@ Was in `youtube.ump.js` geprüft wurde:
 - Das sichere Verhalten von `youtube.ump.js`: leere Antwort statt Absturz, kein Netzwerk.
 
 `node tests/pruefen.mjs` prüft den Hash von `youtube.ump.js`.
+
+### Nachtrag UMP (27.11.2026): Sicherheitsnetz, ungepackte Daten, Zähler
+
+Anlass: Bericht vom 27.11.2026, 17:51.
+- Mit Modul v2 kamen wieder **Werbevideos vor oder im Video**, und der Fehler „Ein Fehler ist aufgetreten“ trat noch manchmal auf.
+- Surge zeigte nur 1 von 8 Video-Starts als verändert.
+- Die Kopie des Originals lässt eine Antwort unverändert durch, **samt Werbung**, wenn sie keinen Player-Teil mit Kopf-Typ 25 findet.
+- Sie erwartet den Inhalt außerdem immer gzip-gepackt.
+
+Geändert (Kopfzeile im Skript vermerkt):
+- **Sicherheitsnetz:**
+  - Enthält eine Antwort Onesie-Teile (UMP-Typ 10), aber keinen bearbeitbaren Player-Teil, antwortet das Skript leer. Dann nimmt die App den Player-Weg, den `youtube.response.js` filtert. Der Schlüssel bleibt dabei erhalten.
+  - Antworten ganz ohne Onesie-Teile gehen weiter unverändert durch.
+- **Ungepackte Daten:**
+  - Ist der entschlüsselte Inhalt nicht gzip-gepackt, wird er direkt gelesen und ungepackt zurückgeschrieben.
+  - Brotli-gepackte Daten kann das Skript nicht lesen. Es meldet das klar, und das Sicherheitsnetz greift.
+- **Zähler ohne Inhalte** (`werbefrei.ump.stats`):
+  - Ergebnis pro Antwort: bearbeitet, ohne Player-Teil, ohne Onesie, Fehler.
+  - Dazu Größe, Anzahl der UMP-Teil-Typen und Onesie-Kopf-Typen, Packart und Fehlermeldung.
+  - Der Werbefrei-Bericht zeigt das.
+
+`node tests/init-test.mjs` baut dafür eine echte verschlüsselte Onesie-Antwort nach (AES-128-CTR + HMAC-SHA256, gzip und ungepackt) und prüft:
+- Die Werbung (`adPlacements`, `adSlots`) wird entfernt.
+- Die Prüfsumme der neu verschlüsselten Antwort stimmt.
+- Das Sicherheitsnetz greift.
+
+### Nachtrag „werbefrei-8“ (27.11.2026)
+
+`youtube.response.js` hält bei Fehlern zusätzlich die Schnittstelle und die ersten Zeilen der Fehlerstelle fest. Anlass: Im Bericht stand mehrmals nur „Ki: Type error“.
 
 ## Warum eine Kopie statt eines Links zum Original?
 

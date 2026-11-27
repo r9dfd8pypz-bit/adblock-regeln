@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
+import { gzipSync, gunzipSync } from 'node:zlib';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const INIT = readFileSync(join(ROOT, 'scripts/youtube/youtube.init.js'), 'utf8');
@@ -104,17 +106,82 @@ const initBody = (key) => [...f(1, [8, 1]), ...f(3, [...f(2, [9, 9, 9]), ...f(5,
   ok(r.net.length === 0 && r.notes.length === 0, 'UMP-Skript: kein Netzwerk, keine Mitteilung');
 }
 {
-  // Antwort ohne verschlüsselten Player-Teil: geht unverändert weiter
-  const r = await run(UMP, { url: INIT_URL, respBody: [0x08, 0x04, 0x01, 0xff, 0xff, 0xff], store: keyStore(), argument: '{"captionLang":"off","lyricLang":"off"}' });
+  // Antwort ohne Onesie-Teile (z. B. nur Medien): geht unverändert weiter
+  const store = keyStore();
+  const r = await run(UMP, { url: INIT_URL, respBody: [0x08, 0x04, 0x01, 0xff, 0xff, 0xff], store, argument: '{"captionLang":"off","lyricLang":"off"}' });
   const out = r.r && (r.r.body || r.r.bodyBytes);
-  ok(!r.timeout && out && Buffer.from(out).equals(Buffer.from([0x08, 0x04, 0x01, 0xff, 0xff, 0xff])) && r.net.length === 0, 'UMP-Skript: Antwort ohne Player-Teil bleibt unverändert, kein Netzwerk');
+  ok(!r.timeout && out && Buffer.from(out).equals(Buffer.from([0x08, 0x04, 0x01, 0xff, 0xff, 0xff])) && r.net.length === 0, 'UMP-Skript: Antwort ohne Onesie-Teile bleibt unverändert, kein Netzwerk');
+  const st = JSON.parse(store.get('werbefrei.ump.stats'));
+  ok(st.ohneOnesie === 1 && st.recent[0].types['8'] === 1, 'UMP-Zähler: „ohne Onesie“ mit Teil-Typen');
 }
 {
-  // Player-Teil (UMP-Teil 10 mit Typ 25, danach Teil 11), der sich nicht entschlüsseln lässt: leer + Schlüssel neu holen
+  // Sicherheitsnetz: Onesie-Antwort mit unbekanntem Kopf-Typ (kein Player-Teil 25) → leer statt Werbung, Schlüssel bleibt
+  const store = keyStore();
+  const r = await run(UMP, { url: INIT_URL, respBody: [10, 2, 8, 26, 11, 3, 1, 2, 3], store, argument: '{"captionLang":"off","lyricLang":"off"}' });
+  ok(!r.timeout && r.r && r.r.status === 200 && (r.r.body || r.r.bodyBytes).byteLength === 0 && r.net.length === 0, 'Sicherheitsnetz: Onesie ohne bearbeitbaren Player-Teil → leere Antwort (Player-Weg, gefiltert)');
+  ok(JSON.parse(store.get('YouTubeConfig')).youtube, 'Sicherheitsnetz: Schlüssel bleibt erhalten');
+  const st = JSON.parse(store.get('werbefrei.ump.stats'));
+  ok(st.ohnePlayer === 1 && st.recent[0].heads['26'] === 1 && st.recent[0].types['10'] === 1, 'UMP-Zähler: „ohne Player“ mit Onesie-Kopf-Typen');
+  ok(!/\[1,2,3\]|"data"/.test(store.get('werbefrei.ump.stats')), 'UMP-Zähler enthalten keine Inhalte');
+}
+{
+  // Player-Teil (Kopf-Typ 25), der sich nicht entschlüsseln lässt: leer + Schlüssel neu holen
   const store = keyStore();
   const r = await run(UMP, { url: INIT_URL, respBody: [10, 2, 8, 25, 11, 3, 1, 2, 3], store, argument: '{"captionLang":"off","lyricLang":"off"}' });
   ok(!r.timeout && r.r && r.r.status === 200 && (r.r.body || r.r.bodyBytes).byteLength === 0 && r.net.length === 0, 'UMP-Skript: unlesbarer Player-Teil → leere Antwort (Player-Weg), kein Netzwerk');
   ok(!JSON.parse(store.get('YouTubeConfig')).youtube, 'UMP-Skript löscht dabei den unpassenden Schlüssel');
+  ok(JSON.parse(store.get('werbefrei.ump.stats')).fehler === 1, 'UMP-Zähler: „Fehler“ mit Meldung');
+}
+
+// --- youtube.ump.js mit nachgebauter, echt verschlüsselter Onesie-Antwort (AES-128-CTR + HMAC-SHA256) ---
+const KEY32 = [...randomBytes(32)];
+const umpVar = (v) => { // UMP-Längenformat (nicht protobuf)
+  if (v < 0x80) return [v];
+  if (v < 0x4000) return [0x80 | (v & 0x3f), v >> 6];
+  if (v < 0x200000) return [0xc0 | (v & 0x1f), (v >> 5) & 0xff, v >> 13];
+  return [0xe0 | (v & 0x0f), (v >> 4) & 0xff, (v >> 12) & 0xff, v >> 20];
+};
+const umpPart = (type, data) => [...umpVar(type), ...umpVar(data.length), ...data];
+const vint = (nr, n) => [...varint(nr * 8), ...varint(n)];
+function onesie(playerBytes, { gzip = true, comp = 1 } = {}) {
+  const watch = f(4, f(2, playerBytes));                       // OnesieInnertubeResponse{4: Content{2: player}}
+  const plain = gzip ? gzipSync(Buffer.from(watch)) : Buffer.from(watch);
+  const iv = randomBytes(16);
+  const c = createCipheriv('aes-128-ctr', Buffer.from(KEY32.slice(0, 16)), iv);
+  const ct = Buffer.concat([c.update(plain), c.final()]);
+  const mac = createHmac('sha256', Buffer.from(KEY32.slice(16))).update(Buffer.concat([ct, iv])).digest();
+  const part = [...f(1, [...ct]), ...f(2, [...mac]), ...f(3, [...iv]), ...vint(4, comp)];
+  return [...umpPart(10, [8, 25]), ...umpPart(11, part), ...umpPart(20, [1, 2, 3])];
+}
+function readOnesie(out) { // Antwort wieder auspacken: Klartext-Bytes des Player-Teils
+  const b = Buffer.from(out); let p = 0; let header = -1; let data = null;
+  const rv = () => { const e = b[p++]; let t = 1; while (t <= 5 && (e & (0x80 >> (t - 1)))) t++; let n = 8 - t; let v = t < 5 ? e & ((1 << n) - 1) : 0; if (t === 5) n = 0; for (let i = 1; i < t; i++) { v |= b[p++] << n; n += 8; } return v; };
+  while (p < b.length) { const type = rv(); const len = rv(); const d = b.subarray(p, p + len); p += len; if (type === 10) header = d[1]; if (type === 11 && header === 25) data = d; }
+  // EncryptedInnertubeResponsePart: 1 Inhalt, 2 hmac, 3 iv
+  const fields = {}; let q = 0; const pv = () => { let v = 0; let m = 1; let c; do { c = data[q++]; v += (c & 127) * m; m *= 128; } while (c & 128); return v; };
+  while (q < data.length) { const tag = pv(); const no = Math.floor(tag / 8); const wt = tag % 8; if (wt === 2) { const l = pv(); fields[no] = data.subarray(q, q + l); q += l; } else pv(); }
+  const d = createDecipheriv('aes-128-ctr', Buffer.from(KEY32.slice(0, 16)), fields[3]);
+  const plain = Buffer.concat([d.update(fields[1]), d.final()]);
+  const mac = createHmac('sha256', Buffer.from(KEY32.slice(16))).update(Buffer.concat([fields[1], fields[3]])).digest();
+  return { plain: plain[0] === 0x1f ? gunzipSync(plain) : plain, macOk: mac.equals(Buffer.from(fields[2])) };
+}
+// Inhalte in unbekannten Feldern (999), damit sie als Rohdaten erhalten bleiben
+const playerMitWerbung = [...f(2, f(1, [0x08, 0x00])), ...f(7, f(999, [...Buffer.from('pagead-placement-'.repeat(20))])), ...f(68, f(999, [...Buffer.from('ad-slot-'.repeat(20))])), ...f(9, f(999, [...Buffer.from('tracking')]))];
+for (const [name, opt] of [['gzip-gepackt', { gzip: true, comp: 1 }], ['ungepackt', { gzip: false, comp: 0 }]]) {
+  const store = new Map([['YouTubeConfig', JSON.stringify({ youtube: { clientKey: b64(KEY32), encryptKey: b64(ENCRYPT) } })]]);
+  const r = await run(UMP, { url: INIT_URL, respBody: onesie(playerMitWerbung, opt), store, argument: '{"captionLang":"off","lyricLang":"off"}' });
+  const out = r.r && (r.r.body || r.r.bodyBytes);
+  let res = null;
+  try { res = readOnesie(out); } catch (e) { res = null; }
+  const txt = res ? res.plain.toString('latin1') : '';
+  ok(res && res.macOk && !txt.includes('pagead-placement') && !txt.includes('ad-slot') && txt.includes('tracking'), `UMP-Skript (${name}): Werbung aus dem verschlüsselten Video-Start entfernt, Prüfsumme stimmt`);
+  ok(JSON.parse(store.get('werbefrei.ump.stats')).bearbeitet === 1 && r.net.length === 0, `UMP-Skript (${name}): Zähler „bearbeitet“, kein Netzwerk`);
+}
+{
+  const store = new Map([['YouTubeConfig', JSON.stringify({ youtube: { clientKey: b64(KEY32), encryptKey: b64(ENCRYPT) } })]]);
+  const r = await run(UMP, { url: INIT_URL, respBody: onesie(playerMitWerbung, { gzip: false, comp: 2 }).map((x, i, a) => x), store, argument: '{}' });
+  // Brotli (2) mit ungepacktem Inhalt wird trotzdem gelesen; echte Brotli-Daten würden als Fehler enden (Sicherheitsnetz)
+  ok(r.r && (r.r.body || r.r.bodyBytes), 'UMP-Skript: Kennzeichen „Brotli“ führt nicht zum Absturz');
 }
 
 console.log(fehler ? `\n${fehler} Fehler gefunden.` : '\nAlles in Ordnung.');
